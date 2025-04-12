@@ -1,0 +1,14 @@
+{
+  "extends": ["@tsconfig/node-lts", "@tsconfig/strictest"],
+  "compilerOptions": {
+    "baseUrl": "./",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "exclude": ["node_modules"]
+}
