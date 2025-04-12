@@ -7,6 +7,8 @@ import eslintPluginUnicorn from "eslint-plugin-unicorn";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
+const __dirname = new URL(".", import.meta.url).pathname;
+
 export default tseslint.config(
   {
     ignores: [".git/", "build/", "coverage/", "dist/", "node_modules/"],
@@ -30,6 +32,7 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: true,
+        tsconfigRootDir: __dirname,
       },
     },
     rules: {},
