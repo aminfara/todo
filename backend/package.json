@@ -30,5 +30,10 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.29.1",
     "vitest": "^3.1.1"
+  },
+  "dependencies": {
+    "fastify": "^4.29.0",
+    "fastify-zod": "^1.4.0",
+    "zod": "^3.24.2"
   }
 }

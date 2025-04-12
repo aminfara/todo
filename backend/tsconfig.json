@@ -10,5 +10,5 @@
       "@/*": ["src/*"]
     }
   },
-  "exclude": ["node_modules"]
+  "exclude": ["build", "coverage", "dist", "node_modules"]
 }
