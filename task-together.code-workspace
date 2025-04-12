@@ -9,5 +9,10 @@
       "path": "."
     }
   ],
-  "settings": {}
+  "settings": {
+    "rewrap.wrappingColumn": 100,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    }
+  }
 }
