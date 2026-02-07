@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as cdk from "aws-cdk-lib/core";
-import { TodoStack } from "../lib/infra-stack";
+import { TodoStack } from "../lib/infra-stack.js";
 
 const app = new cdk.App();
 new TodoStack(app, "TodoStack", {

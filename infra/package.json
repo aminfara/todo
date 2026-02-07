@@ -2,6 +2,7 @@
   "name": "@todo/infra",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "bin": {
     "infra": "bin/infra.js"
   },
@@ -11,16 +12,22 @@
     "type:check": "tsc --noEmit",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
+    "lint:check": "eslint .",
+    "lint": "eslint --fix .",
+    "lint-format": "npm run lint && npm run format",
     "cdk": "CDK_DISABLE_LEGACY_EXPORT_WARNING=1 cdklocal",
     "cdk-live": "cdk"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "aws-cdk": "2.1105.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",
     "prettier-plugin-organize-imports": "^4.3.0",
     "ts-node": "^10.9.2",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.54.0"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.237.1",
