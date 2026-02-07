@@ -1,21 +1,24 @@
 {
-  "name": "infra",
+  "name": "@todo/infra",
   "version": "0.1.0",
+  "private": true,
   "bin": {
     "infra": "bin/infra.js"
   },
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "test": "jest",
-    "cdk": "cdk"
+    "type:check": "tsc --noEmit",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "cdk": "CDK_DISABLE_LEGACY_EXPORT_WARNING=1 cdklocal",
+    "cdk-live": "cdk"
   },
   "devDependencies": {
-    "@types/jest": "^30",
     "@types/node": "^24.10.1",
-    "jest": "^30",
-    "ts-jest": "^29",
     "aws-cdk": "2.1105.0",
+    "prettier": "^3.8.1",
+    "prettier-plugin-organize-imports": "^4.3.0",
     "ts-node": "^10.9.2",
     "typescript": "~5.9.3"
   },

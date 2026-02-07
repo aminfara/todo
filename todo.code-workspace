@@ -1,0 +1,23 @@
+{
+  "folders": [
+    {
+      "path": "app",
+      "name": "app",
+    },
+    {
+      "path": "service",
+      "name": "service",
+    },
+    {
+      "path": "infra",
+      "name": "infra",
+    },
+    {
+      "path": ".",
+      "name": "root",
+    },
+  ],
+  "settings": {
+    "cSpell.words": ["cdklocal", "GOARCH"],
+  },
+}
