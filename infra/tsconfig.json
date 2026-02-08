@@ -20,7 +20,7 @@
     "strictPropertyInitialization": false,
     "skipLibCheck": true,
     "typeRoots": ["./node_modules/@types"],
-    "outDir": "dist"
+    "noEmit": true
   },
   "exclude": ["node_modules", "cdk.out", "dist"]
 }
