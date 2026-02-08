@@ -8,8 +8,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-
-func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func handler(_ context.Context, _ events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
 		Body:       `{"Hello": "World"}`,
