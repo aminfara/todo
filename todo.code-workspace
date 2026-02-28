@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "name": "infra",
+      "path": "infra",
+    },
+    {
+      "name": "root",
+      "path": ".",
+    },
+  ],
+  "settings": {},
+}
