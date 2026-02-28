@@ -5,11 +5,12 @@
     "infra": "bin/infra.js"
   },
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w",
+    "typecheck": "tsc --noEmit",
     "cdk": "cdk"
   },
   "devDependencies": {
+    "@tsconfig/node-lts": "^24.0.0",
+    "@tsconfig/strictest": "^2.0.8",
     "@types/node": "^24.10.1",
     "aws-cdk": "2.1108.0",
     "tsx": "^4.21.0",
