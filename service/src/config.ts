@@ -3,7 +3,7 @@ import z from "zod";
 
 export class ConfigValidationError extends TodosError {
   constructor(options?: Omit<TodosErrorOptions, "statusCode">) {
-    super("Failed to validate configuration from environment variables.", options);
+    super("Failed to validate configuration from environment variables", options);
   }
 }
 

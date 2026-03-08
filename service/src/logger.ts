@@ -36,7 +36,10 @@ export function setupLogger({ config }: SetupLoggerParams) {
     }
   }
 
-  return pino(loggerOptions);
+  const logger = pino(loggerOptions);
+  logger.debug({ loglevel: config.logLevel }, "Logger initialized with configuration");
+
+  return logger;
 }
 
 export type Logger = ReturnType<typeof setupLogger>;
