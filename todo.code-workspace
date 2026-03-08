@@ -1,6 +1,10 @@
 {
   "folders": [
     {
+      "name": "service",
+      "path": "service",
+    },
+    {
       "name": "infra",
       "path": "infra",
     },

@@ -1,0 +1,10 @@
+{
+  "extends": [
+    "@tsconfig/node-lts/tsconfig.json",
+    "@tsconfig/strictest/tsconfig.json"
+  ],
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "exclude": ["node_modules"]
+}
