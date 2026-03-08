@@ -10,6 +10,7 @@ export class ConfigValidationError extends TodosError {
 const configSchema = z
   .object({
     env: z.enum(["development", "production", "test"]),
+    logLevel: z.enum(["info", "debug", "warn", "error"]),
   })
   .readonly(); // make the config object immutable
 
@@ -19,6 +20,7 @@ export function loadConfig(): Config {
   try {
     return configSchema.parse({
       env: process.env["NODE_ENV"],
+      logLevel: process.env["TODOS_LOG_LEVEL"],
     });
   } catch (error) {
     throw new ConfigValidationError({ cause: error instanceof Error ? error : undefined });
@@ -28,5 +30,6 @@ export function loadConfig(): Config {
 export function getPrintableConfig(config: Config): Partial<Config> {
   return {
     env: config.env,
+    logLevel: config.logLevel,
   };
 }

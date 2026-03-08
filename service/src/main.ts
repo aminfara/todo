@@ -1,5 +1,9 @@
 import { getPrintableConfig, loadConfig } from "@/config.js";
+import { setupLogger } from "@/logger.js";
 
-console.log(`LoadedConfig: ${JSON.stringify(getPrintableConfig(loadConfig()))}`);
+const config = loadConfig();
+const logger = setupLogger({ config });
 
-console.log("Hello, world!");
+logger.info({ config: getPrintableConfig(config) }, "Config Loaded");
+
+logger.debug("Hello Luffy! 🏴‍☠️");
