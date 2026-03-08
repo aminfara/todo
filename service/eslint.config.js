@@ -2,7 +2,7 @@
 
 import eslint from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier/flat";
-import nodePlugin from "eslint-plugin-n";
+import eslintPluginN from "eslint-plugin-n";
 import eslintPluginSecurity from "eslint-plugin-security";
 import eslintPluginUnicorn from "eslint-plugin-unicorn";
 import { defineConfig } from "eslint/config";
@@ -16,7 +16,7 @@ export default defineConfig(
     ignores: [".git/", "build/", "coverage/", "dist/", "node_modules/", "tmp/"],
   },
   eslint.configs.recommended,
-  nodePlugin.configs["flat/recommended-module"],
+  eslintPluginN.configs["flat/recommended-module"],
   eslintPluginUnicorn.configs.recommended,
   // @ts-ignore: This plugin doesn't have types, but it works fine
   eslintPluginSecurity.configs.recommended,

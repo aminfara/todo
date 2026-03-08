@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "dev": "dotenvx run -f .env -q --strict -- tsx src/main.ts",
+    "dev:watch": "dotenvx run -f .env -q --strict -- tsx --watch src/main.ts",
     "typecheck": "tsc --noEmit",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
@@ -12,6 +13,7 @@
     "lint-format": "npm run lint && npm run format"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.54.1",
     "@eslint/js": "^10.0.1",
     "@tsconfig/node-lts": "^24.0.0",
     "@tsconfig/strictest": "^2.0.8",
@@ -27,5 +29,9 @@
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.56.1"
+  },
+  "dependencies": {
+    "http-status": "^2.1.0",
+    "zod": "^4.3.6"
   }
 }
