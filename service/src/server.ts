@@ -10,7 +10,7 @@ export interface CreateServerParams {
   options?: FastifyHttpOptions<HttpServer>;
 }
 
-export async function createServer({ options = {} }: CreateServerParams) {
+export async function createServer({ options = {} }: CreateServerParams = {}) {
   setupDiContainer();
 
   const { config, logger } = diContainer.cradle;

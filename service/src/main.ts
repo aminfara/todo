@@ -7,7 +7,7 @@ const DEV_PORT = 3000;
 const DEV_HOST = "localhost";
 
 async function main() {
-  const server = await createServer({});
+  const server = await createServer();
 
   // Handle graceful shutdown
   registerShutdownHandlers(server);

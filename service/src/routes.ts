@@ -5,20 +5,9 @@ interface RegisterRoutesParams {
 }
 
 export async function registerRoutes({ fastify }: RegisterRoutesParams): Promise<void> {
-  fastify.log.info("Registering routes...");
+  const { logger } = fastify.diContainer.cradle;
 
-  await fastify.register(
-    // Redirect root path to API version 1
-    async (fastify, _options) => {
-      fastify.get("/", async (request, reply) => {
-        fastify.log.debug(request);
-        reply.redirect("/api/v1" + request.raw.url);
-      });
-    },
-    {
-      prefix: "/",
-    },
-  );
+  logger.info("Registering routes...");
 
   await fastify.register(
     async (fastify, _options) => {

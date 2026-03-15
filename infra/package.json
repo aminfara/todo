@@ -12,7 +12,8 @@
     "lint:check": "eslint .",
     "lint": "eslint --fix .",
     "lint-format": "npm run lint && npm run format",
-    "cdk": "cdk"
+    "cdk": "CDK_DISABLE_LEGACY_EXPORT_WARNING=1 cdklocal",
+    "cdk-live": "cdk"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -20,6 +21,7 @@
     "@tsconfig/strictest": "^2.0.8",
     "@types/node": "^24.10.1",
     "aws-cdk": "2.1108.0",
+    "aws-cdk-local": "^3.0.1",
     "eslint": "^10.0.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-n": "^17.24.0",
