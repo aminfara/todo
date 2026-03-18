@@ -5,6 +5,10 @@
       "path": "service",
     },
     {
+      "name": "app",
+      "path": "app",
+    },
+    {
       "name": "infra",
       "path": "infra",
     },
