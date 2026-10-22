@@ -9,8 +9,10 @@
     "typecheck": "bun check"
   },
   "dependencies": {
+    "hono": "^4.13.13",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "@tasktogether/service": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19",
