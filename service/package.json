@@ -1,0 +1,13 @@
+{
+  "name": "@tasktogether/service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "typecheck": "bun check"
+  },
+  "dependencies": {
+    "hono": "^4.13.13"
+  }
+}

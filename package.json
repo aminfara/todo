@@ -1,0 +1,16 @@
+{
+  "name": "@tasktogether/root",
+  "private": true,
+  "type": "module",
+  "workspaces": ["app", "service"],
+  "engines": { "bun": ">=1.4" },
+  "scripts": {
+    "dev": "bun run --filter '*' dev",
+    "test": "bun test",
+    "typecheck": "bun run --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.3",
+    "typescript": "^7.0.2"
+  }
+}
