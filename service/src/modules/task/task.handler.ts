@@ -2,11 +2,11 @@ import { zValidator as zv } from "@hono/zod-validator";
 import { Hono, type ValidationTargets } from "hono";
 import type { ZodType } from "zod";
 import {
-  createTodoSchema,
-  toTodoResponse,
-  updateTodoSchema,
-} from "./todo.model";
-import type { TodoService } from "./todo.service";
+  createTaskSchema,
+  toTaskResponse,
+  updateTaskSchema,
+} from "./task.model";
+import type { TaskService } from "./task.service";
 
 // Replaces the validator's default body (a raw ZodError) with our error shape.
 const zValidator = <T extends ZodType, Target extends keyof ValidationTargets>(
@@ -28,16 +28,16 @@ const zValidator = <T extends ZodType, Target extends keyof ValidationTargets>(
     }
   });
 
-export const createTodoHandler = (service: TodoService) =>
+export const createTaskHandler = (service: TaskService) =>
   new Hono()
-    .get("/", (c) => c.json(service.list().map(toTodoResponse)))
-    .post("/", zValidator("json", createTodoSchema), (c) =>
-      c.json(toTodoResponse(service.create(c.req.valid("json"))), 201),
+    .get("/", (c) => c.json(service.list().map(toTaskResponse)))
+    .post("/", zValidator("json", createTaskSchema), (c) =>
+      c.json(toTaskResponse(service.create(c.req.valid("json"))), 201),
     )
-    .get("/:id", (c) => c.json(toTodoResponse(service.get(c.req.param("id")))))
-    .patch("/:id", zValidator("json", updateTodoSchema), (c) =>
+    .get("/:id", (c) => c.json(toTaskResponse(service.get(c.req.param("id")))))
+    .patch("/:id", zValidator("json", updateTaskSchema), (c) =>
       c.json(
-        toTodoResponse(service.update(c.req.param("id"), c.req.valid("json"))),
+        toTaskResponse(service.update(c.req.param("id"), c.req.valid("json"))),
       ),
     )
     .delete("/:id", (c) => {

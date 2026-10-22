@@ -3,7 +3,7 @@ import type { AppType } from "@tasktogether/service";
 
 const client = hc<AppType>("http://localhost:3001");
 
-export type Todo = InferResponseType<typeof client.todos.$get, 200>[number];
+export type Task = InferResponseType<typeof client.tasks.$get, 200>[number];
 
 export class ApiError extends Error {}
 
@@ -30,16 +30,16 @@ const ok = async (res: Res) => {
 };
 
 // After ok() the status is 2xx, so the body is the success shape.
-const body = async (res: Res) => (await ok(res)).json() as Promise<Todo>;
+const body = async (res: Res) => (await ok(res)).json() as Promise<Task>;
 
-export const todosApi = {
+export const tasksApi = {
   list: async () =>
-    (await ok(await client.todos.$get())).json() as Promise<Todo[]>,
+    (await ok(await client.tasks.$get())).json() as Promise<Task[]>,
   create: async (json: { title: string; description?: string }) =>
-    body(await client.todos.$post({ json })),
+    body(await client.tasks.$post({ json })),
   update: async (id: string, json: { title?: string; description?: string }) =>
-    body(await client.todos[":id"].$patch({ param: { id }, json })),
+    body(await client.tasks[":id"].$patch({ param: { id }, json })),
   remove: async (id: string) => {
-    await ok(await client.todos[":id"].$delete({ param: { id } }));
+    await ok(await client.tasks[":id"].$delete({ param: { id } }));
   },
 };

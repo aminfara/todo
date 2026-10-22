@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export type Todo = {
+export type Task = {
   id: string;
   title: string;
   description: string;
@@ -12,21 +12,21 @@ const title = z.string().trim().min(1).max(200);
 const description = z.string().max(2000);
 
 // z.object strips unknown keys, so clients can't set id or timestamps.
-export const createTodoSchema = z.object({
+export const createTaskSchema = z.object({
   title,
   description: description.default(""),
 });
-export type CreateTodoInput = z.infer<typeof createTodoSchema>;
+export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 
-export const updateTodoSchema = z
+export const updateTaskSchema = z
   .object({ title, description })
   .partial()
   .refine((v) => Object.keys(v).length > 0, "at least one field is required");
-export type UpdateTodoInput = z.infer<typeof updateTodoSchema>;
+export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 
 // Output contract: the only fields that leave the service. Hono's c.json
 // is a plain JSON.stringify, so we pick fields explicitly here.
-export const todoResponseSchema = z.object({
+export const taskResponseSchema = z.object({
   id: z.string(),
   title: z.string(),
   description: z.string(),
@@ -34,17 +34,17 @@ export const todoResponseSchema = z.object({
   updatedAt: z.string(),
 });
 
-export const toTodoResponse = (todo: Todo) =>
-  todoResponseSchema.parse({
-    id: todo.id,
-    title: todo.title,
-    description: todo.description,
-    createdAt: todo.createdAt.toISOString(),
-    updatedAt: todo.updatedAt.toISOString(),
+export const toTaskResponse = (task: Task) =>
+  taskResponseSchema.parse({
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    createdAt: task.createdAt.toISOString(),
+    updatedAt: task.updatedAt.toISOString(),
   });
 
-export class TodoNotFoundError extends Error {
+export class TaskNotFoundError extends Error {
   constructor(readonly id: string) {
-    super(`todo ${id} not found`);
+    super(`task ${id} not found`);
   }
 }

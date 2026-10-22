@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import "./index.css";
-import { todosApi, type Todo } from "./api";
+import { tasksApi, type Task } from "./api";
 
 const errorMessage = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong";
 
-function TodoForm({
+function TaskForm({
   initial,
   submitLabel,
   onSubmit,
@@ -29,7 +29,7 @@ function TodoForm({
   };
 
   return (
-    <form onSubmit={submit} className="todo-form">
+    <form onSubmit={submit} className="task-form">
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
@@ -56,7 +56,7 @@ function TodoForm({
 }
 
 export function App() {
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +64,7 @@ export function App() {
   const run = async (action: () => Promise<unknown>) => {
     try {
       await action();
-      setTodos(await todosApi.list());
+      setTasks(await tasksApi.list());
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
@@ -78,34 +78,34 @@ export function App() {
 
   return (
     <main className="app">
-      <h1>Todos</h1>
+      <h1>Tasks</h1>
       {error && <p role="alert" className="error">{error}</p>}
 
-      <TodoForm
+      <TaskForm
         submitLabel="Add"
-        onSubmit={(v) => run(() => todosApi.create(v))}
+        onSubmit={(v) => run(() => tasksApi.create(v))}
       />
 
-      <ul className="todo-list">
-        {todos.map((todo) => (
-          <li key={todo.id}>
-            {editingId === todo.id ? (
-              <TodoForm
-                initial={todo}
+      <ul className="task-list">
+        {tasks.map((task) => (
+          <li key={task.id}>
+            {editingId === task.id ? (
+              <TaskForm
+                initial={task}
                 submitLabel="Save"
                 onSubmit={async (v) => {
-                  await run(() => todosApi.update(todo.id, v));
+                  await run(() => tasksApi.update(task.id, v));
                   setEditingId(null);
                 }}
                 onCancel={() => setEditingId(null)}
               />
             ) : (
               <>
-                <strong>{todo.title}</strong>
-                {todo.description && <p>{todo.description}</p>}
-                <button onClick={() => setEditingId(todo.id)}>Edit</button>
+                <strong>{task.title}</strong>
+                {task.description && <p>{task.description}</p>}
+                <button onClick={() => setEditingId(task.id)}>Edit</button>
                 <button
-                  onClick={() => run(() => todosApi.remove(todo.id)).catch(() => {})}
+                  onClick={() => run(() => tasksApi.remove(task.id)).catch(() => {})}
                 >
                   Delete
                 </button>
@@ -114,7 +114,7 @@ export function App() {
           </li>
         ))}
       </ul>
-      {todos.length === 0 && <p>No todos yet.</p>}
+      {tasks.length === 0 && <p>No tasks yet.</p>}
     </main>
   );
 }

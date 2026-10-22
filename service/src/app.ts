@@ -1,17 +1,17 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
-import { createTodoModule, TodoNotFoundError } from "./modules/todo";
-import type { TodoRepo } from "./modules/todo/todo.repo";
+import { createTaskModule, TaskNotFoundError } from "./modules/task";
+import type { TaskRepo } from "./modules/task/task.repo";
 
-type Deps = { todoRepo?: TodoRepo };
+type Deps = { taskRepo?: TaskRepo };
 
-export const createApp = ({ todoRepo }: Deps = {}) =>
+export const createApp = ({ taskRepo }: Deps = {}) =>
   new Hono()
     .use(cors())
-    .route("/todos", createTodoModule(todoRepo))
+    .route("/tasks", createTaskModule(taskRepo))
     .onError((err, c) => {
-      if (err instanceof TodoNotFoundError) {
+      if (err instanceof TaskNotFoundError) {
         return c.json({ error: "not_found", message: err.message }, 404);
       }
       if (err instanceof HTTPException) return err.getResponse();
