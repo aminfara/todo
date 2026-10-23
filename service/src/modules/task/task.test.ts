@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { pino } from "pino";
 import { createApp } from "../../app";
 import { createTestContainer } from "../../testing";
-import { createTaskService } from "./task-service";
+import { createInMemoryTaskRepo } from "./task-repo";
 
 // Well-formed but never issued by the service.
 const unknownId = `tsk-${"a".repeat(21)}`;
@@ -87,13 +87,13 @@ describe("create", () => {
 });
 
 describe("read", () => {
-  test("lists tasks in creation order", async () => {
-    await create({ title: "first", description: "" });
-    await create({ title: "second", description: "" });
+  test("lists stored tasks in a result envelope", async () => {
+    const created = await create();
 
-    const { result } = await (await send("GET", "/tasks")).json();
+    const res = await send("GET", "/tasks");
 
-    expect(result.map((t: { title: string }) => t.title)).toEqual(["first", "second"]);
+    expect(res.status).toBe(200);
+    expect((await res.json()).result).toEqual([created]);
   });
 
   test("gets one task by id", async () => {
@@ -122,7 +122,7 @@ describe("read", () => {
 });
 
 describe("update", () => {
-  test("changes only the supplied fields", async () => {
+  test("updates the task addressed by the path id", async () => {
     const created = await create({ title: "old", description: "keep" });
 
     const res = await send("PATCH", `/tasks/${created.id}`, { title: "new" });
@@ -130,24 +130,6 @@ describe("update", () => {
     expect(res.status).toBe(200);
     const { result } = await res.json();
     expect(result).toMatchObject({ id: created.id, title: "new", description: "keep" });
-    expect(result.createdAt).toBe(created.createdAt);
-  });
-
-  test("persists the change", async () => {
-    const created = await create();
-    await send("PATCH", `/tasks/${created.id}`, { description: "changed" });
-
-    const fetched = (await (await send("GET", `/tasks/${created.id}`)).json()).result;
-
-    expect(fetched.description).toBe("changed");
-  });
-
-  test("allows clearing the description", async () => {
-    const created = await create();
-
-    const { result } = await (await send("PATCH", `/tasks/${created.id}`, { description: "" })).json();
-
-    expect(result.description).toBe("");
   });
 
   test("rejects an empty patch with 400", async () => {
@@ -202,9 +184,8 @@ describe("delete", () => {
 
 describe("output sanitation", () => {
   test("never returns fields outside the response model", async () => {
-    const real = createTestContainer();
     const leaky = {
-      ...real.taskRepo,
+      ...createInMemoryTaskRepo(),
       list: async () => [
         {
           id: unknownId,
@@ -252,14 +233,13 @@ describe("error handling", () => {
   });
 
   test("unexpected failures give a generic 500 that does not leak the cause", async () => {
-    const real = createTestContainer();
-    const taskService = {
-      ...createTaskService({ taskRepo: real.taskRepo }),
+    const taskRepo = {
+      ...createInMemoryTaskRepo(),
       get: async () => {
         throw new Error("boom: db password is hunter2");
       },
     };
-    app = createApp({ container: createTestContainer({ taskService }) });
+    app = createApp({ container: createTestContainer({ taskRepo }) });
 
     const res = await send("GET", `/tasks/${unknownId}`);
 
@@ -286,14 +266,13 @@ describe("error handling", () => {
 
     test("logs unexpected failures at error", async () => {
       const lines: string[] = [];
-      const real = createTestContainer();
-      const taskService = {
-        ...createTaskService({ taskRepo: real.taskRepo }),
+      const taskRepo = {
+        ...createInMemoryTaskRepo(),
         list: async () => {
           throw new Error("boom");
         },
       };
-      app = createApp({ container: createTestContainer({ logger: logTo(lines), taskService }) });
+      app = createApp({ container: createTestContainer({ logger: logTo(lines), taskRepo }) });
 
       await send("GET", "/tasks");
 

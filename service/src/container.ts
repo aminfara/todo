@@ -1,8 +1,12 @@
 import { loadConfig, type Config } from "./config";
 import { createLogger, type Logger } from "./logger";
-import { createInMemoryTaskRepo, type TaskRepo } from "./modules/task/task-repo";
-import { createTaskRoutes } from "./modules/task/task-routes";
-import { createTaskService, type TaskService } from "./modules/task/task-service";
+import {
+  createInMemoryTaskRepo,
+  createTaskRoutes,
+  createTaskService,
+  type TaskRepo,
+  type TaskService,
+} from "./modules/task";
 
 /** Per-request dependencies. Add anything that must not outlive one request (current user, ...). */
 export interface RequestScope {

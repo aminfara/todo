@@ -1,6 +1,6 @@
 import type { Config } from "./config";
 import { createContainer, type ContainerOverrides } from "./container";
-import { createInMemoryTaskRepo } from "./modules/task/task-repo";
+import { createInMemoryTaskRepo } from "./modules/task";
 
 // Logger is silent when env is "test".
 export const testConfig: Config = {

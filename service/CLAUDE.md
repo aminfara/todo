@@ -15,10 +15,13 @@ src/
   config.ts  logger.ts  errors.ts  id.ts  common-types.ts  sanitize.ts  validator.ts
   testing.ts         createTestContainer and test config
   modules/<name>/    one folder per feature (modular monolith)
+    index.ts          the module's public API; nothing else is imported from outside
     <name>-models.ts  <name>-repo.ts  <name>-service.ts  <name>-routes.ts  <name>-errors.ts
 ```
 
-- Package by feature. A module exposes its routes and service through the container; other modules go through that API, never through its repo.
+- Package by feature. Code outside `modules/<name>/` imports only from `modules/<name>/index.ts`, which exports the factories and types the container needs. Other modules go through the service API, never through its repo. The one exception is `contracts.ts`, which re-exports `<name>-models.ts` directly because the browser cannot load `index.ts`.
+- TypeScript cannot make files package-private, so nothing enforces this yet. When a second module lands, add an architecture test that fails on imports of `modules/<name>/*` from outside the module.
+- A module that needs another module defines the small interface it consumes, in its own folder. The container adapts the other module's public API to it.
 - Kebab-case files named `<module>-<layer>.ts`. Relative imports, no `@/` alias: the app package type-checks files from this package, and its tsconfig cannot resolve the alias.
 - Everything outside `modules/` is generic. A helper moves to the root only when a second module needs it.
 
@@ -90,7 +93,10 @@ src/
 ## Testing
 
 - Write tests from the intended behaviour first, then the implementation, and watch each fail for the right reason.
-- Test through the public surface: HTTP via `app.request` for module behaviour, plus unit tests for pure helpers (config, ids, errors, sanitize, validator).
-- Use real in-process collaborators. `createTestContainer()` passes an in-memory repo explicitly, so tests stay fast when production wires a database. Use fakes or overrides only for what the module does not own.
+- Put each check at the lowest level that can catch it. When a higher-level test exposes a bug, add a test at the lowest level that could have caught it.
+- Domain rules are tested against the service (`createTaskService` with an in-memory repo and an injected clock and id generator). HTTP tests through `app.request` cover the boundary only: status codes, validation mapping, sanitation, error shape, request id. Pure helpers (config, ids, errors, sanitize, validator) get unit tests.
+- Use real in-process collaborators. `createTestContainer()` passes an in-memory repo explicitly, so tests stay fast when production wires a database. Use fakes or overrides only for what the module does not own. To force a failure, make the repo throw, not the module's own service.
+- When a database repo exists, keep the in-memory repo as the fast fake and run one repo contract test against both, so they cannot drift. Add a few integration tests per use case against the database engine production uses.
+- A module's tests build only that module, with doubles of the other modules' public APIs. `createTestContainer()` is for app-level and wiring tests.
 - Use a well-formed unknown id (`tsk-` plus 21 characters) to test 404, and a malformed one to test 400.
 - Capture logs by passing a pino instance writing to an array; assert on level and message.

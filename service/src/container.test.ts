@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { pino } from "pino";
 import { createContainer } from "./container";
-import { createInMemoryTaskRepo } from "./modules/task/task-repo";
+import { createInMemoryTaskRepo } from "./modules/task";
 import { createTestContainer, testConfig } from "./testing";
 
 describe("createContainer", () => {
