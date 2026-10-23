@@ -25,7 +25,9 @@ src/
 ## Functions and modules
 
 - Factories, not classes: `createXService({ deps })` returns an object of methods. Every function takes one parameters object, with an interface named `CreateXParameters`.
-- Service methods take one request object and return one response object (`{ result }`).
+- Service methods take one request object and return one response object (`{ result }`). The request holds only what belongs to the domain object (`getTask({ id })`).
+- Information an operation needs that is not part of the domain object goes in an optional second parameter named `context`: the requesting user for authorisation, the request-scoped logger, a trace id. Example: `getTask({ id }, { user, logger })`. Keep the request pure domain data, and keep per-call concerns out of the factory's dependencies; the service's own `logger` dependency is the fallback when no context logger is passed.
+- Route handlers build the `context` from `c.var.scope` and pass it down. Define one `Context` type per service (or a shared one in `common-types.ts`) and make every field of it required inside the type that needs it, so a missing user is a compile error rather than a runtime surprise.
 - Dependencies are explicit parameters, including the clock (`now`) and id generator (`newId`), with production defaults.
 - Keep decisions in pure functions and I/O at the edge. Immutable by default: return new values.
 - A module that holds resources exposes an optional `dispose()`.
