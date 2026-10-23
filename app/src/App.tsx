@@ -1,27 +1,45 @@
+import {
+  createTaskRequestSchema,
+  updateTaskRequestSchema,
+} from "@tasktogether/service/contracts";
 import { useEffect, useState, type FormEvent } from "react";
-import "./index.css";
+import type { ZodType } from "zod";
 import { tasksApi, type Task } from "./api";
+import "./index.css";
+
+// The id comes from the row being edited, so the form validates the request minus id.
+const updateTaskFormSchema = updateTaskRequestSchema.omit({ id: true });
 
 const errorMessage = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong";
 
-function TaskForm({
+// Validates with the same zod schema the backend uses, so bad input never leaves the browser.
+function TaskForm<T>({
   initial,
+  schema,
   submitLabel,
   onSubmit,
   onCancel,
 }: {
   initial?: { title: string; description: string };
+  schema: ZodType<T>;
   submitLabel: string;
-  onSubmit: (v: { title: string; description: string }) => Promise<void>;
+  onSubmit: (v: T) => Promise<void>;
   onCancel?: () => void;
 }) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [issues, setIssues] = useState<string[]>([]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    await onSubmit({ title, description });
+    const parsed = schema.safeParse({ title, description });
+    if (!parsed.success) {
+      setIssues(parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`));
+      return;
+    }
+    setIssues([]);
+    await onSubmit(parsed.data);
     if (!initial) {
       setTitle("");
       setDescription("");
@@ -43,6 +61,11 @@ function TaskForm({
         placeholder="Description"
         maxLength={2000}
       />
+      {issues.map((issue) => (
+        <p key={issue} role="alert" className="error">
+          {issue}
+        </p>
+      ))}
       <div>
         <button type="submit">{submitLabel}</button>
         {onCancel && (
@@ -82,6 +105,7 @@ export function App() {
       {error && <p role="alert" className="error">{error}</p>}
 
       <TaskForm
+        schema={createTaskRequestSchema}
         submitLabel="Add"
         onSubmit={(v) => run(() => tasksApi.create(v))}
       />
@@ -92,6 +116,7 @@ export function App() {
             {editingId === task.id ? (
               <TaskForm
                 initial={task}
+                schema={updateTaskFormSchema}
                 submitLabel="Save"
                 onSubmit={async (v) => {
                   await run(() => tasksApi.update(task.id, v));

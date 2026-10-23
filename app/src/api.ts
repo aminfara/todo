@@ -1,9 +1,13 @@
-import { hc, type InferResponseType } from "hono/client";
 import type { AppType } from "@tasktogether/service";
+import type { Task as TaskModel } from "@tasktogether/service/contracts";
+import { hc } from "hono/client";
+import type { JSONParsed } from "hono/utils/types";
+import { config } from "./config";
 
-const client = hc<AppType>("http://localhost:3001");
+const client = hc<AppType>(config.apiUrl);
 
-export type Task = InferResponseType<typeof client.tasks.$get, 200>["result"][number];
+// The backend model as it arrives over JSON (Dates become ISO strings).
+export type Task = JSONParsed<TaskModel>;
 
 export class ApiError extends Error {}
 
@@ -35,7 +39,7 @@ const unwrap = async <T>(res: Res) =>
 
 export const tasksApi = {
   list: async () => unwrap<Task[]>(await client.tasks.$get()),
-  create: async (json: { title: string; description?: string }) =>
+  create: async (json: { title: string; description: string }) =>
     unwrap<Task>(await client.tasks.$post({ json })),
   update: async (id: string, json: { title?: string; description?: string }) =>
     unwrap<Task>(await client.tasks[":id"].$patch({ param: { id }, json })),

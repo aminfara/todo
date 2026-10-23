@@ -9,10 +9,11 @@
     "typecheck": "bun check"
   },
   "dependencies": {
+    "@tasktogether/service": "workspace:*",
     "hono": "^4.13.13",
     "react": "^19",
     "react-dom": "^19",
-    "@tasktogether/service": "workspace:*"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/react": "^19",

@@ -10,11 +10,14 @@
   "dependencies": {
     "@hono/zod-validator": "^0.9.1",
     "hono": "^4.13.13",
+    "http-status": "^2.1.0",
+    "nanoid": "^6.0.2",
     "pino": "^10.4.0",
     "pino-pretty": "^13.2.0",
     "zod": "^4.6.7"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts.ts"
   }
 }

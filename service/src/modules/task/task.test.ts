@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { pino } from "pino";
 import { createApp } from "../../app";
 import { createTestContainer } from "../../testing";
 import { createTaskService } from "./task-service";
+
+// Well-formed but never issued by the service.
+const unknownId = `tsk-${"a".repeat(21)}`;
 
 type JsonResponse = Omit<Response, "json"> & { json(): Promise<any> };
 
@@ -40,37 +44,43 @@ describe("create", () => {
     expect(new Date(result.createdAt).toISOString()).toBe(result.createdAt);
   });
 
-  test("defaults description to empty and trims the title", async () => {
-    const task = await create({ title: "  Walk dog  " });
+  test("trims the title", async () => {
+    const task = await create({ title: "  Walk dog  ", description: "" });
 
     expect(task.title).toBe("Walk dog");
-    expect(task.description).toBe("");
+  });
+
+  test("issues a prefixed id", async () => {
+    const task = await create();
+
+    expect(task.id).toMatch(/^tsk-[A-Za-z0-9]{21}$/);
   });
 
   test("ignores unknown fields instead of storing them", async () => {
-    const task = await create({ title: "x", id: "forced", secret: "s" });
+    const task = await create({ title: "x", description: "", id: "forced", secret: "s" });
 
     expect(task.id).not.toBe("forced");
     expect(task).not.toHaveProperty("secret");
   });
 
   test.each([
-    ["missing title", {}],
+    ["missing title", { description: "" }],
+    ["missing description", { title: "x" }],
     ["blank title", { title: "   " }],
     ["title over 200 chars", { title: "a".repeat(201) }],
     ["description over 2000 chars", { title: "x", description: "a".repeat(2001) }],
-    ["non-string title", { title: 5 }],
+    ["non-string title", { title: 5, description: "" }],
   ])("rejects %s with a validation error", async (_name, body) => {
     const res = await send("POST", "/tasks", body);
 
     expect(res.status).toBe(400);
     const { error } = await res.json();
-    expect(error.code).toBe("validation_failed");
+    expect(error.code).toBe("bad_request");
     expect(error.details.issues.length).toBeGreaterThan(0);
   });
 
   test("accepts a title of exactly 200 chars", async () => {
-    const res = await send("POST", "/tasks", { title: "a".repeat(200) });
+    const res = await send("POST", "/tasks", { title: "a".repeat(200), description: "" });
 
     expect(res.status).toBe(201);
   });
@@ -78,8 +88,8 @@ describe("create", () => {
 
 describe("read", () => {
   test("lists tasks in creation order", async () => {
-    await create({ title: "first" });
-    await create({ title: "second" });
+    await create({ title: "first", description: "" });
+    await create({ title: "second", description: "" });
 
     const { result } = await (await send("GET", "/tasks")).json();
 
@@ -95,12 +105,19 @@ describe("read", () => {
     expect((await res.json()).result).toEqual(created);
   });
 
-  test("returns 404 for an unknown id", async () => {
-    const res = await send("GET", "/tasks/nope");
+  test("returns 404 for a well-formed id that does not exist", async () => {
+    const res = await send("GET", `/tasks/${unknownId}`);
 
     expect(res.status).toBe(404);
     const { error } = await res.json();
-    expect(error).toMatchObject({ code: "not_found", message: "Task nope not found" });
+    expect(error).toMatchObject({ code: "not_found", message: `Task ${unknownId} not found` });
+  });
+
+  test("returns 400 for a malformed id", async () => {
+    const res = await send("GET", "/tasks/nope");
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe("bad_request");
   });
 });
 
@@ -139,6 +156,15 @@ describe("update", () => {
     const res = await send("PATCH", `/tasks/${created.id}`, {});
 
     expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe("bad_request");
+  });
+
+  test("ignores an id in the body", async () => {
+    const created = await create();
+
+    const res = await send("PATCH", `/tasks/${created.id}`, { id: unknownId, title: "t" });
+
+    expect((await res.json()).result.id).toBe(created.id);
   });
 
   test("rejects a blank title with 400", async () => {
@@ -150,26 +176,52 @@ describe("update", () => {
   });
 
   test("returns 404 for an unknown id", async () => {
-    const res = await send("PATCH", "/tasks/nope", { title: "x" });
+    const res = await send("PATCH", `/tasks/${unknownId}`, { title: "x" });
 
     expect(res.status).toBe(404);
   });
 });
 
 describe("delete", () => {
-  test("removes the task and returns 204", async () => {
+  test("removes the task and returns it", async () => {
     const created = await create();
 
     const res = await send("DELETE", `/tasks/${created.id}`);
 
-    expect(res.status).toBe(204);
+    expect(res.status).toBe(200);
+    expect((await res.json()).result).toEqual(created);
     expect((await send("GET", `/tasks/${created.id}`)).status).toBe(404);
   });
 
   test("returns 404 for an unknown id", async () => {
-    const res = await send("DELETE", "/tasks/nope");
+    const res = await send("DELETE", `/tasks/${unknownId}`);
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe("output sanitation", () => {
+  test("never returns fields outside the response model", async () => {
+    const real = createTestContainer();
+    const leaky = {
+      ...real.taskRepo,
+      list: async () => [
+        {
+          id: unknownId,
+          title: "t",
+          description: "",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          passwordHash: "secret",
+        },
+      ],
+    };
+    app = createApp({ container: createTestContainer({ taskRepo: leaky }) });
+
+    const body = await (await send("GET", "/tasks")).json();
+
+    expect(body.result[0]).not.toHaveProperty("passwordHash");
+    expect(body.result[0].title).toBe("t");
   });
 });
 
@@ -193,7 +245,7 @@ describe("error handling", () => {
   });
 
   test("echoes a client request id in the header and the error body", async () => {
-    const res = await send("GET", "/tasks/nope", undefined, { "x-request-id": "req-abc" });
+    const res = await send("GET", `/tasks/${unknownId}`, undefined, { "x-request-id": "req-abc" });
 
     expect(res.headers.get("x-request-id")).toBe("req-abc");
     expect((await res.json()).error.requestId).toBe("req-abc");
@@ -209,11 +261,43 @@ describe("error handling", () => {
     };
     app = createApp({ container: createTestContainer({ taskService }) });
 
-    const res = await send("GET", "/tasks/any");
+    const res = await send("GET", `/tasks/${unknownId}`);
 
     expect(res.status).toBe(500);
     const { error } = await res.json();
-    expect(error.code).toBe("internal_error");
+    expect(error.code).toBe("internal_server_error");
     expect(JSON.stringify(error)).not.toContain("hunter2");
+  });
+
+  describe("logging", () => {
+    const logTo = (lines: string[]) =>
+      pino({ level: "debug" }, { write: (line: string) => void lines.push(line) });
+    const levelOf = (lines: string[], msg: string) =>
+      lines.map((l) => JSON.parse(l)).find((l) => l.msg === msg)?.level;
+
+    test("logs client errors at warn", async () => {
+      const lines: string[] = [];
+      app = createApp({ container: createTestContainer({ logger: logTo(lines) }) });
+
+      await send("GET", `/tasks/${unknownId}`);
+
+      expect(levelOf(lines, `Task ${unknownId} not found`)).toBe(40);
+    });
+
+    test("logs unexpected failures at error", async () => {
+      const lines: string[] = [];
+      const real = createTestContainer();
+      const taskService = {
+        ...createTaskService({ taskRepo: real.taskRepo }),
+        list: async () => {
+          throw new Error("boom");
+        },
+      };
+      app = createApp({ container: createTestContainer({ logger: logTo(lines), taskService }) });
+
+      await send("GET", "/tasks");
+
+      expect(levelOf(lines, "Unhandled error")).toBe(50);
+    });
   });
 });

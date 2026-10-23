@@ -1,7 +1,13 @@
 import { zValidator as zv } from "@hono/zod-validator";
 import type { ValidationTargets } from "hono";
 import type { ZodType } from "zod";
-import { ValidationError } from "./errors";
+import { BadRequestError } from "./errors";
+
+export class ValidationError extends BadRequestError {
+  constructor(issues: { path: string; message: string }[], options?: ErrorOptions) {
+    super("Request validation failed", { ...options, details: { issues } });
+  }
+}
 
 /**
  * zValidator that throws a ValidationError, so the app's onError renders every failure the same

@@ -1,39 +1,52 @@
 import { Hono } from "hono";
+import { sanitize } from "../../sanitize";
 import { zValidator } from "../../validator";
 import {
-  createTaskBody,
-  toTaskResponse,
-  toTasksResponse,
-  updateTaskBody,
-} from "./task-model";
+  createTaskRequestSchema,
+  createTaskResponseSchema,
+  deleteTaskRequestSchema,
+  deleteTaskResponseSchema,
+  getTaskRequestSchema,
+  getTaskResponseSchema,
+  listTasksResponseSchema,
+  updateTaskRequestSchema,
+  updateTaskResponseSchema,
+} from "./task-models";
 import type { TaskService } from "./task-service";
 
 export interface CreateTaskRoutesParameters {
   taskService: TaskService;
 }
 
-/** Mounted by the app under `/tasks`. Handlers only translate HTTP to service calls. */
+// The boundary adapts to the domain: the id arrives in the path, so the body is the request minus id.
+const updateTaskBodySchema = updateTaskRequestSchema.omit({ id: true });
+
+/** Mounted by the app under `/tasks`. Handlers translate HTTP to service calls and back. */
 export function createTaskRoutes({ taskService }: CreateTaskRoutesParameters) {
   return {
     routes: new Hono()
-      .get("/", async (c) => c.json(toTasksResponse(await taskService.list())))
-      .post("/", zValidator("json", createTaskBody), async (c) =>
-        c.json(toTaskResponse(await taskService.create(c.req.valid("json"))), 201),
+      .get("/", async (c) => c.json(sanitize(listTasksResponseSchema, await taskService.list())))
+      .post("/", zValidator("json", createTaskRequestSchema), async (c) =>
+        c.json(sanitize(createTaskResponseSchema, await taskService.create(c.req.valid("json"))), 201),
       )
-      .get("/:id", async (c) =>
-        c.json(toTaskResponse(await taskService.get({ id: c.req.param("id") }))),
+      .get("/:id", zValidator("param", getTaskRequestSchema), async (c) =>
+        c.json(sanitize(getTaskResponseSchema, await taskService.get(c.req.valid("param")))),
       )
-      .patch("/:id", zValidator("json", updateTaskBody), async (c) =>
-        c.json(
-          toTaskResponse(
-            await taskService.update({ id: c.req.param("id"), ...c.req.valid("json") }),
+      .patch(
+        "/:id",
+        zValidator("param", getTaskRequestSchema),
+        zValidator("json", updateTaskBodySchema),
+        async (c) =>
+          c.json(
+            sanitize(
+              updateTaskResponseSchema,
+              await taskService.update({ ...c.req.valid("param"), ...c.req.valid("json") }),
+            ),
           ),
-        ),
       )
-      .delete("/:id", async (c) => {
-        await taskService.delete({ id: c.req.param("id") });
-        return c.body(null, 204);
-      }),
+      .delete("/:id", zValidator("param", deleteTaskRequestSchema), async (c) =>
+        c.json(sanitize(deleteTaskResponseSchema, await taskService.delete(c.req.valid("param")))),
+      ),
   };
 }
 

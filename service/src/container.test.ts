@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { pino } from "pino";
+import { createContainer } from "./container";
 import { createInMemoryTaskRepo } from "./modules/task/task-repo";
-import { createTestContainer } from "./testing";
+import { createTestContainer, testConfig } from "./testing";
 
 describe("createContainer", () => {
   test("wires the task service to the task repo", async () => {
@@ -34,7 +35,8 @@ describe("createContainer", () => {
 
 describe("dispose", () => {
   test("disposes modules the container created", async () => {
-    const container = createTestContainer();
+    // Default wiring on purpose: only modules the container builds itself are its to dispose.
+    const container = createContainer({ config: testConfig });
     await container.taskService.create({ title: "x", description: "" });
 
     await container.dispose();

@@ -1,5 +1,6 @@
 import type { Config } from "./config";
 import { createContainer, type ContainerOverrides } from "./container";
+import { createInMemoryTaskRepo } from "./modules/task/task-repo";
 
 // Logger is silent when env is "test".
 export const testConfig: Config = {
@@ -9,5 +10,10 @@ export const testConfig: Config = {
   port: 3001,
 };
 
+// Repo is explicit, so tests stay fast and isolated even when production wires a database.
 export const createTestContainer = (overrides: ContainerOverrides = {}) =>
-  createContainer({ config: testConfig, ...overrides });
+  createContainer({
+    config: testConfig,
+    taskRepo: createInMemoryTaskRepo(),
+    ...overrides,
+  });

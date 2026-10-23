@@ -3,10 +3,10 @@ import { InternalServerError } from "./errors";
 
 const configSchema = z
   .object({
-    env: z.enum(["development", "production", "test"]).default("development"),
-    logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
-    host: z.string().min(1).default("localhost"),
-    port: z.coerce.number().int().min(1).max(65535).default(3001),
+    env: z.enum(["development", "production", "test"]),
+    logLevel: z.enum(["debug", "info", "warn", "error"]),
+    host: z.string().min(1),
+    port: z.coerce.number().int().min(1).max(65535),
   })
   .readonly(); // parse() returns a frozen object
 
@@ -23,8 +23,8 @@ export interface LoadConfigParameters {
 }
 
 /**
- * Loads and validates configuration. Bun loads `.env` files into `process.env` on its own, so no
- * dotenv step is needed.
+ * Loads and validates configuration. Every value is mandatory: the environment decides, the code
+ * has no defaults. Bun loads `.env` files into `process.env` on its own, so no dotenv step is needed.
  */
 export function loadConfig({ env = process.env }: LoadConfigParameters = {}): Config {
   const result = configSchema.safeParse({
