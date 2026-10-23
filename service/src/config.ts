@@ -1,0 +1,48 @@
+import { z } from "zod";
+import { InternalServerError } from "./errors";
+
+const configSchema = z
+  .object({
+    env: z.enum(["development", "production", "test"]).default("development"),
+    logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
+    host: z.string().min(1).default("localhost"),
+    port: z.coerce.number().int().min(1).max(65535).default(3001),
+  })
+  .readonly(); // parse() returns a frozen object
+
+export type Config = z.infer<typeof configSchema>;
+
+export class ConfigValidationError extends InternalServerError {
+  constructor(options?: ErrorOptions) {
+    super("Failed to validate configuration from environment variables", options);
+  }
+}
+
+export interface LoadConfigParameters {
+  env?: Record<string, string | undefined>;
+}
+
+/**
+ * Loads and validates configuration. Bun loads `.env` files into `process.env` on its own, so no
+ * dotenv step is needed.
+ */
+export function loadConfig({ env = process.env }: LoadConfigParameters = {}): Config {
+  const result = configSchema.safeParse({
+    env: env["NODE_ENV"],
+    logLevel: env["TASKTOGETHER_LOG_LEVEL"],
+    host: env["TASKTOGETHER_HOST"],
+    port: env["PORT"],
+  });
+  if (!result.success) throw new ConfigValidationError({ cause: result.error });
+  return result.data;
+}
+
+/** Allow-list of fields that are safe to log. Add secrets to Config, not here. */
+export function getPrintableConfig(config: Config): Partial<Config> {
+  return {
+    env: config.env,
+    logLevel: config.logLevel,
+    host: config.host,
+    port: config.port,
+  };
+}

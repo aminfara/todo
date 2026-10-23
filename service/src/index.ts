@@ -1,8 +1,2 @@
-import { createApp } from "./app";
-
+// Types only: imported by the app package for the typed Hono client.
 export type { AppType } from "./app";
-
-export default {
-  port: Number(process.env.PORT ?? 3001),
-  fetch: createApp().fetch,
-};

@@ -1,22 +1,52 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
-import { createTaskModule, TaskNotFoundError } from "./modules/task";
-import type { TaskRepo } from "./modules/task/task.repo";
+import { requestId } from "hono/request-id";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { AppError, NotFoundError } from "./errors";
+import type { Container } from "./container";
+import { requestScope, type AppEnv } from "./request-scope";
 
-type Deps = { taskRepo?: TaskRepo };
+export interface CreateAppParameters {
+  container: Container;
+}
 
-export const createApp = ({ taskRepo }: Deps = {}) =>
-  new Hono()
+// Explicit pick: never spread an Error, its own properties (name, cause, stack) are not API.
+const errorBody = (
+  c: { get(key: "requestId"): string },
+  { code, message, details }: { code: string; message: string; details?: unknown },
+) => ({ error: { code, message, details, requestId: c.get("requestId") } });
+
+export function createApp({ container }: CreateAppParameters) {
+  return new Hono<AppEnv>()
     .use(cors())
-    .route("/tasks", createTaskModule(taskRepo))
+    .use(requestId())
+    .use(requestScope(container))
+    .route("/tasks", container.taskRoutes.routes)
+    .notFound((c) => {
+      const error = new NotFoundError(`Route ${c.req.method} ${c.req.path} not found`);
+      return c.json(errorBody(c, error), error.statusCode);
+    })
+    // Boundary: the only place errors are logged and turned into responses.
     .onError((err, c) => {
-      if (err instanceof TaskNotFoundError) {
-        return c.json({ error: "not_found", message: err.message }, 404);
+      const { logger } = c.get("scope");
+
+      if (err instanceof AppError) {
+        const log = err.statusCode >= 500 ? logger.error : logger.debug;
+        log.call(logger, { err }, err.message);
+        return c.json(errorBody(c, err), err.statusCode);
       }
-      if (err instanceof HTTPException) return err.getResponse();
-      console.error(err);
-      return c.json({ error: "internal_error" }, 500);
+
+      // Thrown by Hono itself, e.g. malformed JSON in the request body.
+      if (err instanceof HTTPException) {
+        logger.debug({ err }, err.message);
+        const code = err.status === 400 ? "bad_request" : "http_error";
+        return c.json(errorBody(c, { code, message: err.message }), err.status as ContentfulStatusCode);
+      }
+
+      logger.error({ err }, "Unhandled error");
+      return c.json(errorBody(c, { code: "internal_error", message: "Internal Server Error" }), 500);
     });
+}
 
 export type AppType = ReturnType<typeof createApp>;

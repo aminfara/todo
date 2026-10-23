@@ -3,7 +3,7 @@ import type { AppType } from "@tasktogether/service";
 
 const client = hc<AppType>("http://localhost:3001");
 
-export type Task = InferResponseType<typeof client.tasks.$get, 200>[number];
+export type Task = InferResponseType<typeof client.tasks.$get, 200>["result"][number];
 
 export class ApiError extends Error {}
 
@@ -17,28 +17,28 @@ type Res = {
 const ok = async (res: Res) => {
   if (res.ok) return res;
   const body = (await res.json().catch(() => null)) as {
-    issues?: { path: string; message: string }[];
-    message?: string;
-    error?: string;
+    error?: {
+      message?: string;
+      details?: { issues?: { path: string; message: string }[] };
+    };
   } | null;
-  const detail =
-    body?.issues?.map((i) => `${i.path}: ${i.message}`).join(", ") ??
-    body?.message ??
-    body?.error ??
-    res.statusText;
+  const issues = body?.error?.details?.issues;
+  const detail = issues
+    ? issues.map((i) => `${i.path}: ${i.message}`).join(", ")
+    : (body?.error?.message ?? res.statusText);
   throw new ApiError(detail);
 };
 
-// After ok() the status is 2xx, so the body is the success shape.
-const body = async (res: Res) => (await ok(res)).json() as Promise<Task>;
+// After ok() the status is 2xx, so the body is the success shape: { result }.
+const unwrap = async <T>(res: Res) =>
+  ((await (await ok(res)).json()) as { result: T }).result;
 
 export const tasksApi = {
-  list: async () =>
-    (await ok(await client.tasks.$get())).json() as Promise<Task[]>,
+  list: async () => unwrap<Task[]>(await client.tasks.$get()),
   create: async (json: { title: string; description?: string }) =>
-    body(await client.tasks.$post({ json })),
+    unwrap<Task>(await client.tasks.$post({ json })),
   update: async (id: string, json: { title?: string; description?: string }) =>
-    body(await client.tasks[":id"].$patch({ param: { id }, json })),
+    unwrap<Task>(await client.tasks[":id"].$patch({ param: { id }, json })),
   remove: async (id: string) => {
     await ok(await client.tasks[":id"].$delete({ param: { id } }));
   },
