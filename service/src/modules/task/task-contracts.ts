@@ -1,0 +1,28 @@
+// Browser-safe public surface of the task module: schemas and types only, no server code. The app
+// package reaches it through src/contracts.ts; server code reaches it through index.ts.
+export {
+  taskIdSchema,
+  taskSchema,
+  createTaskRequestSchema,
+  createTaskResponseSchema,
+  getTaskRequestSchema,
+  getTaskResponseSchema,
+  listTasksRequestSchema,
+  listTasksResponseSchema,
+  updateTaskRequestSchema,
+  updateTaskResponseSchema,
+  deleteTaskRequestSchema,
+  deleteTaskResponseSchema,
+  type TaskId,
+  type Task,
+  type CreateTaskRequest,
+  type CreateTaskResponse,
+  type GetTaskRequest,
+  type GetTaskResponse,
+  type ListTasksRequest,
+  type ListTasksResponse,
+  type UpdateTaskRequest,
+  type UpdateTaskResponse,
+  type DeleteTaskRequest,
+  type DeleteTaskResponse,
+} from "./task-models";

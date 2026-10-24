@@ -3,7 +3,10 @@ import { descriptionSchema, idSchema, timestampsSchema, titleSchema } from "../.
 
 // The domain model. Requests and responses are the inputs and outputs of the service operations;
 // route handlers adapt HTTP to these types, never the other way around.
-export const taskIdSchema = idSchema.startsWith("tsk");
+
+// Branded: only a parsed or generated id is a TaskId, so an unchecked string cannot reach the repo.
+export const taskIdSchema = idSchema.startsWith("tsk").brand<"TaskId">();
+export type TaskId = z.output<typeof taskIdSchema>;
 
 export const taskSchema = z
   .object({

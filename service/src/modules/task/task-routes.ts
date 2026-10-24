@@ -1,6 +1,6 @@
-import { Hono } from "hono";
-import { sanitize } from "../../sanitize";
-import { zValidator } from "../../validator";
+import { Hono, type Context } from "hono";
+import type { AppEnv } from "../../request-scope";
+import { input } from "../../validator";
 import {
   createTaskRequestSchema,
   createTaskResponseSchema,
@@ -12,42 +12,43 @@ import {
   updateTaskRequestSchema,
   updateTaskResponseSchema,
 } from "./task-models";
-import type { TaskService } from "./task-service";
+import type { TaskService, TaskServiceContext } from "./task-service";
 
 export interface CreateTaskRoutesParameters {
   taskService: TaskService;
 }
 
-// The boundary adapts to the domain: the id arrives in the path, so the body is the request minus id.
-const updateTaskBodySchema = updateTaskRequestSchema.omit({ id: true });
+// Each route splits its operation's request schema by where the fields arrive: the id in the path,
+// everything else in the body. The service validates the merged request.
+const createTaskBody = createTaskRequestSchema;
+const getTaskParams = getTaskRequestSchema;
+const updateTaskParams = updateTaskRequestSchema.pick({ id: true });
+const updateTaskBody = updateTaskRequestSchema.omit({ id: true });
+const deleteTaskParams = deleteTaskRequestSchema;
 
-/** Mounted by the app under `/tasks`. Handlers translate HTTP to service calls and back. */
+const contextOf = (c: Context<AppEnv>): TaskServiceContext => ({ logger: c.var.scope.logger });
+
+/**
+ * Mounted by the app under `/tasks`. Handlers translate HTTP to service calls and back. Responses are
+ * parsed with their schema, which strips every field the schema does not name.
+ */
 export function createTaskRoutes({ taskService }: CreateTaskRoutesParameters) {
   return {
-    routes: new Hono()
-      .get("/", async (c) => c.json(sanitize(listTasksResponseSchema, await taskService.list())))
-      .post("/", zValidator("json", createTaskRequestSchema), async (c) =>
-        c.json(sanitize(createTaskResponseSchema, await taskService.create(c.req.valid("json"))), 201),
+    routes: new Hono<AppEnv>()
+      .get("/", async (c) => c.json(listTasksResponseSchema.parse(await taskService.list({}, contextOf(c)))))
+      .post("/", input("json", createTaskBody), async (c) =>
+        c.json(createTaskResponseSchema.parse(await taskService.create(c.req.valid("json"), contextOf(c))), 201),
       )
-      .get("/:id", zValidator("param", getTaskRequestSchema), async (c) =>
-        c.json(sanitize(getTaskResponseSchema, await taskService.get(c.req.valid("param")))),
+      .get("/:id", input("param", getTaskParams), async (c) =>
+        c.json(getTaskResponseSchema.parse(await taskService.get(c.req.valid("param"), contextOf(c)))),
       )
-      .patch(
-        "/:id",
-        zValidator("param", getTaskRequestSchema),
-        zValidator("json", updateTaskBodySchema),
-        async (c) =>
-          c.json(
-            sanitize(
-              updateTaskResponseSchema,
-              await taskService.update({ ...c.req.valid("param"), ...c.req.valid("json") }),
-            ),
-          ),
-      )
-      .delete("/:id", zValidator("param", deleteTaskRequestSchema), async (c) =>
-        c.json(sanitize(deleteTaskResponseSchema, await taskService.delete(c.req.valid("param")))),
+      .patch("/:id", input("param", updateTaskParams), input("json", updateTaskBody), async (c) => {
+        // The path id wins over any id in the body.
+        const request = { ...c.req.valid("json"), ...c.req.valid("param") };
+        return c.json(updateTaskResponseSchema.parse(await taskService.update(request, contextOf(c))));
+      })
+      .delete("/:id", input("param", deleteTaskParams), async (c) =>
+        c.json(deleteTaskResponseSchema.parse(await taskService.delete(c.req.valid("param"), contextOf(c)))),
       ),
   };
 }
-
-export type TaskRoutes = ReturnType<typeof createTaskRoutes>;

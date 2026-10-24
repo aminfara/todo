@@ -1,3 +1,2 @@
-// Runtime-safe exports for the app package: zod schemas and types only, no server code.
-export * from "./common-types";
-export * from "./modules/task/task-models";
+// Runtime-safe exports for the app package: each module's contracts file, no server code.
+export * from "./modules/task/task-contracts";

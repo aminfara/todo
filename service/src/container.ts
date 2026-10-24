@@ -29,18 +29,19 @@ export type ContainerOverrides = Partial<{
  * The container disposes what it created, in reverse order, and leaves overrides to their owner.
  */
 export function createContainer(overrides: ContainerOverrides = {}) {
-  const disposers: Array<() => Promise<void>> = [];
+  // Disposes in reverse order of registration, and still runs the rest when one throws.
+  const disposables = new AsyncDisposableStack();
   const own = <T extends object>(module: T): T => {
     const { dispose } = module as { dispose?: () => Promise<void> };
-    if (dispose) disposers.unshift(dispose);
+    if (dispose) disposables.defer(dispose);
     return module;
   };
 
   const config = overrides.config ?? loadConfig();
   const logger = overrides.logger ?? createLogger({ config });
   const taskRepo = overrides.taskRepo ?? own(createInMemoryTaskRepo());
-  const taskService = overrides.taskService ?? own(createTaskService({ taskRepo }));
-  const taskRoutes = own(createTaskRoutes({ taskService }));
+  const taskService = overrides.taskService ?? own(createTaskService({ taskRepo, logger }));
+  const taskRoutes = createTaskRoutes({ taskService });
 
   return {
     config,
@@ -57,14 +58,9 @@ export function createContainer(overrides: ContainerOverrides = {}) {
       };
     },
 
+    /** Rejects with the first failure (a SuppressedError when several fail) after trying them all. */
     async dispose() {
-      for (const dispose of disposers) {
-        try {
-          await dispose();
-        } catch (error) {
-          logger.error({ err: error }, "Failed to dispose a module");
-        }
-      }
+      await disposables.disposeAsync();
     },
   };
 }

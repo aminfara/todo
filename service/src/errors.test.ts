@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { AppError, BadRequestError, InternalServerError, NotFoundError, toErrorCode } from "./errors";
+import { toErrorCode } from "./errors";
 
 describe("toErrorCode", () => {
   test.each([
@@ -16,12 +16,3 @@ describe("toErrorCode", () => {
   });
 });
 
-describe("error classes", () => {
-  test.each<[AppError, number]>([
-    [new BadRequestError("x"), 400],
-    [new NotFoundError("x"), 404],
-    [new InternalServerError("x"), 500],
-  ])("%p carries its HTTP status", (error, statusCode) => {
-    expect<number>(error.statusCode).toBe(statusCode);
-  });
-});

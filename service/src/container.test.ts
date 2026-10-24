@@ -1,47 +1,38 @@
 import { describe, expect, test } from "bun:test";
 import { pino } from "pino";
-import { createContainer } from "./container";
 import { createInMemoryTaskRepo } from "./modules/task";
+import { createContainer } from "./container";
 import { createTestContainer, testConfig } from "./testing";
 
 describe("createContainer", () => {
-  test("wires the task service to the task repo", async () => {
-    const container = createTestContainer();
-
-    await container.taskService.create({ title: "wired", description: "" });
-
-    expect(await container.taskRepo.list()).toHaveLength(1);
-  });
-
   test("uses an overridden repo instead of creating one", async () => {
     const taskRepo = createInMemoryTaskRepo();
     const container = createTestContainer({ taskRepo });
 
     await container.taskService.create({ title: "x", description: "" });
 
-    expect(container.taskRepo).toBe(taskRepo);
     expect(await taskRepo.list()).toHaveLength(1);
   });
 
   test("two containers do not share state", async () => {
-    const a = createTestContainer();
-    const b = createTestContainer();
+    // Default wiring on purpose: createTestContainer would inject a fresh repo into each.
+    const a = createContainer({ config: testConfig });
+    const b = createContainer({ config: testConfig });
 
     await a.taskService.create({ title: "x", description: "" });
 
-    expect(await b.taskRepo.list()).toHaveLength(0);
+    expect((await b.taskService.list()).result).toHaveLength(0);
   });
 });
 
 describe("dispose", () => {
-  test("disposes modules the container created", async () => {
-    // Default wiring on purpose: only modules the container builds itself are its to dispose.
+  test("disposes the modules it created", async () => {
     const container = createContainer({ config: testConfig });
     await container.taskService.create({ title: "x", description: "" });
 
     await container.dispose();
 
-    expect(await container.taskRepo.list()).toHaveLength(0);
+    expect((await container.taskService.list()).result).toHaveLength(0);
   });
 
   test("leaves overridden modules to their owner", async () => {

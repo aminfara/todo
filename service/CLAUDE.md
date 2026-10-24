@@ -1,102 +1,52 @@
 # Service conventions
 
-Hono on Bun. Prefer Hono and Bun idioms, and use a framework facility when one exists; do not port Fastify or Awilix patterns blindly. The root `CLAUDE.md` rules (Bun, `bun test`, `bun check`) apply here too.
+Hono on Bun. Prefer a Hono, Bun or zod facility over a hand-rolled one, and do not port Fastify or Awilix patterns.
 
 ## Layout
 
 ```
 src/
-  main.ts            entry: container, Bun.serve, graceful shutdown
-  app.ts             createApp({ container }): middleware, routes, notFound, onError
-  index.ts           type-only export (AppType) for the app package
-  contracts.ts       zod schemas and types safe for the browser (no server code)
-  container.ts       composition root
-  request-scope.ts   per-request scope middleware and request logging
-  config.ts  logger.ts  errors.ts  id.ts  common-types.ts  sanitize.ts  validator.ts
-  testing.ts         createTestContainer and test config
-  modules/<name>/    one folder per feature (modular monolith)
-    index.ts          the module's public API; nothing else is imported from outside
-    <name>-models.ts  <name>-repo.ts  <name>-service.ts  <name>-routes.ts  <name>-errors.ts
+  main.ts  app.ts  container.ts  request-scope.ts   entry, HTTP app, composition root, per-request scope
+  index.ts                                          type-only AppType for the app package
+  contracts.ts                                      browser-safe re-export of each module's contracts
+  config.ts  logger.ts  errors.ts  id.ts  validator.ts  common-types.ts  testing.ts
+  modules/<name>/
+    index.ts             public API for server code
+    <name>-contracts.ts  public API for the browser: schemas and types only
+    <name>-models.ts  <name>-domain.ts  <name>-service.ts  <name>-repo.ts  <name>-routes.ts  <name>-errors.ts
 ```
 
-- Package by feature. Code outside `modules/<name>/` imports only from `modules/<name>/index.ts`, which exports the factories and types the container needs. Other modules go through the service API, never through its repo. The one exception is `contracts.ts`, which re-exports `<name>-models.ts` directly because the browser cannot load `index.ts`.
-- TypeScript cannot make files package-private, so nothing enforces this yet. When a second module lands, add an architecture test that fails on imports of `modules/<name>/*` from outside the module.
-- A module that needs another module defines the small interface it consumes, in its own folder. The container adapts the other module's public API to it.
-- Kebab-case files named `<module>-<layer>.ts`. Relative imports, no `@/` alias: the app package type-checks files from this package, and its tsconfig cannot resolve the alias.
-- Everything outside `modules/` is generic. A helper moves to the root only when a second module needs it.
+- Code outside a module imports only its `index.ts`; `src/contracts.ts` is the one importer of `<name>-contracts.ts`. Other modules call the service, never the repo. When a second module lands, add an architecture test for this, since TypeScript cannot make files package-private.
+- All wiring happens in `container.ts`: plain code in dependency order, no DI framework. Overrides replace a module for tests or another environment, and the container disposes only what it created (`AsyncDisposableStack`).
+- Everything outside `modules/` is generic. Relative imports only: the app type-checks this package and cannot resolve aliases.
 
-## Functions and modules
+## Operations
 
-- Factories, not classes: `createXService({ deps })` returns an object of methods. Every function takes one parameters object, with an interface named `CreateXParameters`.
-- Service methods take one request object and return one response object (`{ result }`). The request holds only what belongs to the domain object (`getTask({ id })`).
-- Information an operation needs that is not part of the domain object goes in an optional second parameter named `context`: the requesting user for authorisation, the request-scoped logger, a trace id. Example: `getTask({ id }, { user, logger })`. Keep the request pure domain data, and keep per-call concerns out of the factory's dependencies; the service's own `logger` dependency is the fallback when no context logger is passed.
-- Route handlers build the `context` from `c.var.scope` and pass it down. Define one `Context` type per service (or a shared one in `common-types.ts`) and make every field of it required inside the type that needs it, so a missing user is a compile error rather than a runtime surprise.
-- Dependencies are explicit parameters, including the clock (`now`) and id generator (`newId`), with production defaults.
-- Keep decisions in pure functions and I/O at the edge. Immutable by default: return new values.
-- A module that holds resources exposes an optional `dispose()`.
-
-## Types and models
-
-- Zod schemas are the source of truth. Define the entity schema first, then derive request and response schemas with `pick`, `omit`, `extend` and `partial`. Never write a parallel TypeScript type by hand.
-- Models describe the domain and the service operations. Route handlers are the boundary and adapt to them, never the reverse. Example: the update request includes `id`, and the handler omits it from the body schema.
-- Per operation, in this order and adjacent: `<op>RequestSchema`, `<op>ResponseSchema`, `<Op>Request`, `<Op>Response` (`createTask`, `getTask`, `listTasks`, `updateTask`, `deleteTask`).
-- Request types use `z.input`, response types use `z.output`.
-- Operations that return one entity share one response schema.
-- Shared field schemas (id, title, description) and mixins (`timestampsSchema`, applied with `.extend(timestampsSchema.shape)`) live in `common-types.ts`.
-- Ids are prefixed nanoids (`tsk-` plus 21 characters), generated by `getUniqueId(prefix)` and validated by `idSchema.startsWith(prefix)`.
-- Domain rules live in the service (for example "an update needs at least one field"), not in a refined schema, because refined zod objects cannot be `omit`ted.
-
-## Dependency injection
-
-- `container.ts` is static wiring: plain code, built in dependency order. No DI framework, no reflection. Do not build a mini framework.
-- `createContainer(overrides)` accepts overrides per app start (tests, other environments). The container disposes in reverse order only what it created. Whoever creates a module disposes it, so an injected instance is left alone.
-- `createRequestScope({ requestId })` is the per-request wiring point. Today it holds a logger bound to the request id. Put request-lifetime dependencies (current user, ...) there. The middleware creates the scope per request and disposes it in `finally`.
-- Handlers read request-scoped values from `c.var.scope`, typed through `AppEnv`.
-
-## Config
-
-- `config.ts` parses env vars with zod into a frozen object. Every value is mandatory: no defaults in code, a missing or invalid value fails startup with `ConfigValidationError`.
-- `loadConfig({ env })` takes the env as a parameter. Bun loads `.env` itself, so there is no dotenv.
-- Env vars are prefixed `TASKTOGETHER_`, except `NODE_ENV` and `PORT`. Document each in `.env.example`.
-- Log config only through `getPrintableConfig`, an explicit allow-list. Add pino `redact` paths when secrets are introduced.
-
-## Errors
-
-- `errors.ts` holds generic HTTP errors only (`AppError`, `BadRequestError`, `NotFoundError`, `InternalServerError`). Errors specific to a module or function live beside the code that throws them (`ValidationError` in `validator.ts`, `InvalidIdError` in `id.ts`, `TaskNotFoundError` in `task-errors.ts`).
-- Errors carry a numeric status from `http-status` constants, and subclass by meaning: a validation error is a `BadRequestError`. Never invent string codes. `toErrorCode(status)` derives the response code (`bad_request`, `not_found`) from the library's name table.
-- Pass `cause` when wrapping. Throw from business logic; only `app.onError` and `app.notFound` turn errors into responses.
-- Response shape: `{ error: { code, message, details?, requestId } }`. Build it with an explicit pick, never by spreading an Error. Unexpected errors return a generic 500 and never leak the cause.
-
-## Logging
-
-- pino. Pretty transport in development, JSON with ISO time in production, `silent` in test. A request-bound child logger comes from the request scope.
-- Client errors (4xx) log at `warn`, server errors (5xx) at `error`. Every request logs one structured "request completed" line with method, path, status and duration.
-- Request ids come from `hono/request-id` (honours and echoes `X-Request-Id`). We use our own structured request logging instead of `hono/logger`, which prints unstructured text.
+- Factories, not classes. Factories and domain functions take one parameters object; service methods take `(request, context?)`.
+- A service method is a verb taking one request and an optional `context`, and returning `{ result }`: `get({ id }, { logger })`. The request is domain data; `context` holds per-call information (request logger, later the user). Schemas and types carry the entity name: `getTaskRequestSchema`, `GetTaskRequest`.
+- Route handlers build the context from `c.var.scope`. The service's own `logger` dependency is the fallback.
+- Pure decisions (validation, building and changing an entity) live in `<name>-domain.ts`; the service does the I/O around them.
 
 ## Validation and output
 
-- Validate input with `zValidator` from `validator.ts`, which throws `ValidationError`, so every failure goes through `onError`. Validate params, query and body with the domain schemas.
-- Sanitise output with `sanitize(responseSchema, value)`. It keeps only the fields the schema names, at every depth, and does not validate or coerce. `c.json` is a plain `JSON.stringify` and would send every field of the object it is given.
-- Dates serialise to ISO strings through `c.json`.
+- Every request is validated once, before any I/O, with `validate(schema, request)`: inside the domain function when one builds or changes the entity, otherwise in the service method. Every caller gets the same rules.
+- Routes declare the contract with `input(target, schema)` from `validator.ts`. It types `hc` and `c.req.valid` but does not validate. Each route splits its operation's request schema by where the fields arrive: the id from the path, the rest from the body; the path wins. A body sent without `content-type: application/json` reaches the service empty.
+- zod keeps an explicit `undefined` as a present key. Rules that count supplied fields must ignore it.
+- Routes parse every response with its response schema before `c.json`. zod strips unknown keys, so nothing outside the schema leaves the API.
 
-## Lifecycle
+## Types and errors
 
-- `main.ts` creates the container, `Bun.serve`, and handles SIGINT and SIGTERM: `server.stop()` (lets in-flight requests finish), then `container.dispose()`.
-- Dev uses `bun --watch` (full restart). `--hot` re-runs `Bun.serve` and conflicts on the port.
-- `bun run dev` at the root runs every package with `--parallel`. Without it, the app waits on the service script, which never exits.
+- Zod schemas are the source of truth; derive request and response schemas from the entity with `pick`, `omit`, `partial`. Request types are `z.input`, response types `z.output`. Ids are branded (`TaskId`).
+- An error's HTTP status is its category. Errors subclass the generic HTTP errors in `errors.ts` by meaning (`EmptyTaskUpdateError` is a `BadRequestError`) and live beside the code that throws them. Only `app.onError` and `app.notFound` turn errors into responses, and unexpected errors return a generic 500.
 
-## Frontend contract
+## Config, logging, lifecycle
 
-- The app imports `AppType` from `@tasktogether/service` for the typed `hc` client, and schemas and types from `@tasktogether/service/contracts` for client-side validation. Keep `contracts.ts` free of server code (no pino, config, container).
-- Wire types are the domain types after JSON (`JSONParsed<Task>`): dates become strings.
+- `loadConfig({ env })` parses env vars into a frozen object with no defaults in code. Prefix vars `TASKTOGETHER_` (except `NODE_ENV`, `PORT`), document them in `.env.example`, and log config only through `getPrintableConfig`.
+- pino: 4xx at `warn`, 5xx at `error`, one "request completed" line per request. Request ids come from `hono/request-id`.
+- Dev uses `bun --watch`; `--hot` re-runs `Bun.serve` and conflicts on the port.
 
 ## Testing
 
-- Write tests from the intended behaviour first, then the implementation, and watch each fail for the right reason.
-- Put each check at the lowest level that can catch it. When a higher-level test exposes a bug, add a test at the lowest level that could have caught it.
-- Domain rules are tested against the service (`createTaskService` with an in-memory repo and an injected clock and id generator). HTTP tests through `app.request` cover the boundary only: status codes, validation mapping, sanitation, error shape, request id. Pure helpers (config, ids, errors, sanitize, validator) get unit tests.
-- Use real in-process collaborators. `createTestContainer()` passes an in-memory repo explicitly, so tests stay fast when production wires a database. Use fakes or overrides only for what the module does not own. To force a failure, make the repo throw, not the module's own service.
-- When a database repo exists, keep the in-memory repo as the fast fake and run one repo contract test against both, so they cannot drift. Add a few integration tests per use case against the database engine production uses.
-- A module's tests build only that module, with doubles of the other modules' public APIs. `createTestContainer()` is for app-level and wiring tests.
-- Use a well-formed unknown id (`tsk-` plus 21 characters) to test 404, and a malformed one to test 400.
-- Capture logs by passing a pino instance writing to an array; assert on level and message.
+- Domain rules and validation: unit tests on `<name>-domain.ts`. Use cases: service tests with the in-memory repo and injected `now` and `newId`. HTTP boundary: `src/app.test.ts` through `testClient`, which types requests and responses from the routes.
+- The in-memory repo copies on read and write, like a database. When a database repo lands, run one contract test against both.
+- `await` every `expect(...).rejects`. Use a well-formed unknown id for 404 and a malformed one for 400.

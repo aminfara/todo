@@ -1,13 +1,30 @@
 import { describe, expect, test } from "bun:test";
+import { z } from "zod";
 import { BadRequestError } from "./errors";
-import { ValidationError } from "./validator";
+import { validate, ValidationError } from "./validator";
 
-describe("ValidationError", () => {
-  test("is a bad request carrying the issues", () => {
-    const error = new ValidationError([{ path: "title", message: "required" }]);
+const schema = z.object({ name: z.string().trim(), tags: z.array(z.object({ label: z.string().min(1) })) });
 
+describe("validate", () => {
+  test("returns the parsed output, stripped of unknown fields", () => {
+    expect(validate(schema, { name: " ali ", tags: [], extra: 1 })).toEqual({ name: "ali", tags: [] });
+  });
+
+  test("throws a bad request ValidationError listing each issue by dotted path", () => {
+    let error: unknown;
+    try {
+      validate(schema, { name: 5, tags: [{ label: "" }] });
+    } catch (e) {
+      error = e;
+    }
+
+    expect(error).toBeInstanceOf(ValidationError);
     expect(error).toBeInstanceOf(BadRequestError);
-    expect(error.statusCode).toBe(400);
-    expect(error.details).toEqual({ issues: [{ path: "title", message: "required" }] });
+    expect((error as ValidationError).details).toEqual({
+      issues: [
+        { path: "name", message: expect.any(String) },
+        { path: "tags.0.label", message: expect.any(String) },
+      ],
+    });
   });
 });

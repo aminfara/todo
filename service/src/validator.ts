@@ -1,6 +1,6 @@
-import { zValidator as zv } from "@hono/zod-validator";
 import type { ValidationTargets } from "hono";
-import type { ZodType } from "zod";
+import { validator } from "hono/validator";
+import type { z } from "zod";
 import { BadRequestError } from "./errors";
 
 export class ValidationError extends BadRequestError {
@@ -9,19 +9,22 @@ export class ValidationError extends BadRequestError {
   }
 }
 
+/** Parses `value` with `schema` and returns the output, or throws a ValidationError. */
+export function validate<S extends z.ZodType>(schema: S, value: unknown): z.output<S> {
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    throw new ValidationError(
+      result.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
+      { cause: result.error },
+    );
+  }
+  return result.data;
+}
+
 /**
- * zValidator that throws a ValidationError, so the app's onError renders every failure the same
- * way. The stock validator would answer with the raw ZodError.
+ * Declares the type of one request part for the typed client (`hc`) without validating it. The
+ * service validates its own requests, so the route only states the contract and passes the value on.
+ * Hono still parses the body, so malformed JSON is a 400.
  */
-export const zValidator = <T extends ZodType, Target extends keyof ValidationTargets>(
-  target: Target,
-  schema: T,
-) =>
-  zv(target, schema, (result) => {
-    if (!result.success) {
-      throw new ValidationError(
-        result.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
-        { cause: result.error },
-      );
-    }
-  });
+export const input = <S extends z.ZodType, Target extends keyof ValidationTargets>(target: Target, _schema: S) =>
+  validator(target, (value) => value as z.input<S>);
