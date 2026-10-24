@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "service", "runtimeExecutable": "bun", "runtimeArgs": ["run", "--cwd", "service", "dev"], "port": 3001 },
+    { "name": "app", "runtimeExecutable": "bun", "runtimeArgs": ["run", "--cwd", "app", "dev"], "port": 3000 }
+  ]
+}
