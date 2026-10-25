@@ -2,7 +2,7 @@ import { createApp } from "./app";
 import { getPrintableConfig } from "./config";
 import { createContainer } from "./container";
 
-const container = createContainer();
+const container = await createContainer();
 const { config, logger } = container;
 logger.info({ config: getPrintableConfig(config) }, "Loaded configuration");
 

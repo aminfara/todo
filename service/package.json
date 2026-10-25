@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch src/main.ts",
-    "typecheck": "bun check"
+    "typecheck": "bun check",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun src/migrate.ts"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
     "http-status": "^2.1.0",
     "nanoid": "^6.0.2",
@@ -18,5 +21,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./contracts": "./src/contracts.ts"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.11",
+    "drizzle-kit": "^0.31.11"
   }
 }

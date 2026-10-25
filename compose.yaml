@@ -1,0 +1,23 @@
+# Local Postgres for development. `bun run db:up` starts the Podman machine if needed, then this.
+# Tests do not use it: they run on PGlite, an in-memory Postgres.
+# Fixed name, so every worktree shares one container and one data volume.
+name: tasktogether
+
+services:
+  postgres:
+    image: docker.io/library/postgres:18
+    environment:
+      POSTGRES_USER: tasktogether
+      POSTGRES_PASSWORD: tasktogether
+      POSTGRES_DB: tasktogether
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "tasktogether"]
+      interval: 2s
+      retries: 15
+
+volumes:
+  postgres-data:

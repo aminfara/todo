@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { testClient } from "hono/testing";
 import { pino } from "pino";
 import { createApp } from "./app";
-import { createInMemoryTaskRepo } from "./modules/task";
-import { createTestContainer } from "./testing";
+import type { ContainerOverrides } from "./container";
+import { taskIdSchema } from "./modules/task";
+import { createTestContainer, createTestDatabase, resetDatabase, stubTaskRepo } from "./testing";
 
 // HTTP boundary only: status codes, input and error mapping, output stripping, request ids and
 // logging. Domain rules are tested in modules/task.
@@ -15,12 +16,28 @@ type ErrorBody = { error: { code: string; message: string; details?: any; reques
 // Error bodies come from onError, which the typed client does not know about.
 const errorOf = async (res: { json(): Promise<unknown> }) => ((await res.json()) as ErrorBody).error;
 
-const clientFor = (container = createTestContainer()) => testClient(createApp({ container }));
+// One PGlite database for the file, emptied before each test. Containers are cheap to wire, so
+// each test still gets its own, sharing the database (which the containers then leave open).
+const database = await createTestDatabase();
+afterAll(() => database.dispose());
 
-let client: ReturnType<typeof clientFor>;
+const containers: { dispose(): Promise<void> }[] = [];
+const appFor = async (overrides: ContainerOverrides = {}) => {
+  const container = await createTestContainer({ database, ...overrides });
+  containers.push(container);
+  return createApp({ container });
+};
+const clientFor = async (overrides: ContainerOverrides = {}) => testClient(await appFor(overrides));
 
-beforeEach(() => {
-  client = clientFor();
+let client: Awaited<ReturnType<typeof clientFor>>;
+
+beforeEach(async () => {
+  await resetDatabase(database.db);
+  client = await clientFor();
+});
+
+afterEach(async () => {
+  await Promise.all(containers.splice(0).map((container) => container.dispose()));
 });
 
 const create = async (json = { title: "Buy milk", description: "2 litres" }) =>
@@ -121,20 +138,17 @@ describe("tasks routes", () => {
   });
 
   test("responses never include fields outside the response model", async () => {
-    const leaky = {
-      ...createInMemoryTaskRepo(),
-      list: async () => [
-        {
-          id: unknownId,
-          title: "t",
-          description: "",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          passwordHash: "secret",
-        },
-      ],
+    // A variable, not a literal, so TypeScript lets the extra field through as a buggy repo would.
+    const row = {
+      id: taskIdSchema.parse(unknownId),
+      title: "t",
+      description: "",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      passwordHash: "secret",
     };
-    client = clientFor(createTestContainer({ taskRepo: leaky as never }));
+    const leaky = stubTaskRepo({ list: async () => [row] });
+    client = await clientFor({ taskRepo: leaky });
 
     const { result } = await (await client.tasks.$get()).json();
 
@@ -145,7 +159,7 @@ describe("tasks routes", () => {
 
 describe("error handling", () => {
   test("malformed JSON gives a 400 bad_request, not a 500", async () => {
-    const app = createApp({ container: createTestContainer() });
+    const app = await appFor();
 
     const res = await app.request("/tasks", {
       method: "POST",
@@ -158,7 +172,7 @@ describe("error handling", () => {
   });
 
   test("an unknown route gives a not_found error body", async () => {
-    const res = await createApp({ container: createTestContainer() }).request("/nowhere");
+    const res = await (await appFor()).request("/nowhere");
 
     expect(res.status).toBe(404);
     expect((await errorOf(res)).code).toBe("not_found");
@@ -175,13 +189,12 @@ describe("error handling", () => {
   });
 
   test("unexpected failures give a generic 500 that does not leak the cause", async () => {
-    const taskRepo = {
-      ...createInMemoryTaskRepo(),
+    const taskRepo = stubTaskRepo({
       get: async () => {
         throw new Error("boom: db password is hunter2");
       },
-    };
-    client = clientFor(createTestContainer({ taskRepo }));
+    });
+    client = await clientFor({ taskRepo });
 
     const res = await client.tasks[":id"].$get({ param: { id: unknownId } });
 
@@ -198,7 +211,7 @@ describe("logging", () => {
 
   test("logs client errors at warn", async () => {
     const lines: string[] = [];
-    client = clientFor(createTestContainer({ logger: logTo(lines) }));
+    client = await clientFor({ logger: logTo(lines) });
 
     await client.tasks[":id"].$get({ param: { id: unknownId } });
 
@@ -207,13 +220,12 @@ describe("logging", () => {
 
   test("logs unexpected failures at error", async () => {
     const lines: string[] = [];
-    const taskRepo = {
-      ...createInMemoryTaskRepo(),
+    const taskRepo = stubTaskRepo({
       list: async () => {
         throw new Error("boom");
       },
-    };
-    client = clientFor(createTestContainer({ logger: logTo(lines), taskRepo }));
+    });
+    client = await clientFor({ logger: logTo(lines), taskRepo });
 
     await client.tasks.$get();
 
@@ -222,7 +234,7 @@ describe("logging", () => {
 
   test("service logs carry the request id", async () => {
     const lines: string[] = [];
-    client = clientFor(createTestContainer({ logger: logTo(lines) }));
+    client = await clientFor({ logger: logTo(lines) });
 
     await client.tasks.$post(
       { json: { title: "a", description: "" } },

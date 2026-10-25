@@ -7,6 +7,7 @@ const validEnv = {
   TASKTOGETHER_LOG_LEVEL: "warn",
   TASKTOGETHER_HOST: "0.0.0.0",
   PORT: "8080",
+  TASKTOGETHER_DATABASE_URL: "postgres://user:pass@db:5432/tasktogether",
 };
 
 describe("loadConfig", () => {
@@ -16,6 +17,7 @@ describe("loadConfig", () => {
       logLevel: "warn",
       host: "0.0.0.0",
       port: 8080,
+      databaseUrl: "postgres://user:pass@db:5432/tasktogether",
     });
   });
 
@@ -35,6 +37,7 @@ describe("loadConfig", () => {
     ["port above 65535", { PORT: "70000" }],
     ["non-numeric port", { PORT: "abc" }],
     ["empty host", { TASKTOGETHER_HOST: "" }],
+    ["non-Postgres database URL", { TASKTOGETHER_DATABASE_URL: "mysql://db/tasktogether" }],
   ])("throws ConfigValidationError for %s", (_name, override) => {
     const env = { ...validEnv, ...override };
 
@@ -48,6 +51,7 @@ describe("getPrintableConfig", () => {
     const config = { ...loadConfig({ env: validEnv }), secret: "s3cr3t" };
 
     expect(getPrintableConfig(config)).not.toHaveProperty("secret");
+    expect(getPrintableConfig(config)).not.toHaveProperty("databaseUrl");
     expect(getPrintableConfig(config)).toHaveProperty("port", 8080);
   });
 });

@@ -1,44 +1,87 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
+import { createTestDatabase, resetDatabase } from "../../testing";
 import { taskIdSchema, type Task } from "./task-models";
-import { createInMemoryTaskRepo } from "./task-repo";
+import { createDrizzleTaskRepo, type TaskRepo } from "./task-repo";
 
 const at = new Date("2026-01-01T00:00:00.000Z");
-const task = (): Task => ({
-  id: taskIdSchema.parse(`tsk-${"1".repeat(21)}`),
+const later = new Date("2026-01-02T00:00:00.000Z");
+const idOf = (n: number) => taskIdSchema.parse(`tsk-${String(n).padStart(21, "0")}`);
+const task = (overrides: Partial<Task> = {}): Task => ({
+  id: idOf(1),
   title: "stored",
   description: "",
   createdAt: at,
   updatedAt: at,
+  ...overrides,
 });
 
-// Behaves like a database: callers get copies, never the stored object.
-describe("createInMemoryTaskRepo", () => {
-  test("a saved task does not change when the caller mutates its own object", async () => {
-    const repo = createInMemoryTaskRepo();
-    const mine = task();
-    await repo.save({ task: mine });
+const database = await createTestDatabase();
+afterAll(() => database.dispose());
 
-    mine.title = "mutated";
+const createRepo = async (): Promise<TaskRepo> => {
+  await resetDatabase(database.db);
+  return createDrizzleTaskRepo({ db: database.db });
+};
 
-    expect((await repo.get({ id: mine.id }))?.title).toBe("stored");
-  });
-
-  test("a task read back does not change the store when mutated", async () => {
-    const repo = createInMemoryTaskRepo();
+describe("createDrizzleTaskRepo", () => {
+  test("get returns a saved task with its Dates intact", async () => {
+    const repo = await createRepo();
     await repo.save({ task: task() });
 
-    const [read] = await repo.list();
-    read!.title = "mutated";
+    const read = await repo.get({ id: idOf(1) });
 
-    expect((await repo.get({ id: read!.id }))?.title).toBe("stored");
+    expect(read).toEqual(task());
+    expect(read?.createdAt).toBeInstanceOf(Date);
   });
 
-  test("keeps Date values as Dates", async () => {
-    const repo = createInMemoryTaskRepo();
+  test("keeps a title and description at their maximum lengths", async () => {
+    const repo = await createRepo();
+    const long = task({ title: "t".repeat(200), description: "d".repeat(2000) });
+    await repo.save({ task: long });
+
+    expect(await repo.get({ id: long.id })).toEqual(long);
+  });
+
+  test("get returns undefined for an unknown id", async () => {
+    const repo = await createRepo();
+
+    expect(await repo.get({ id: idOf(999) })).toBeUndefined();
+  });
+
+  test("save with an existing id replaces the stored task", async () => {
+    const repo = await createRepo();
     await repo.save({ task: task() });
 
-    const [read] = await repo.list();
+    await repo.save({ task: task({ title: "changed", description: "new", updatedAt: later }) });
 
-    expect(read!.createdAt).toEqual(at);
+    expect(await repo.get({ id: idOf(1) })).toEqual(
+      task({ title: "changed", description: "new", updatedAt: later }),
+    );
+    expect(await repo.list()).toHaveLength(1);
+  });
+
+  test("list returns tasks in the order they were first saved, even with equal timestamps", async () => {
+    const repo = await createRepo();
+    await repo.save({ task: task({ id: idOf(2), title: "first" }) });
+    await repo.save({ task: task({ id: idOf(1), title: "second" }) });
+    await repo.save({ task: task({ id: idOf(2), title: "first, updated", updatedAt: later }) });
+
+    const titles = (await repo.list()).map((stored) => stored.title);
+
+    expect(titles).toEqual(["first, updated", "second"]);
+  });
+
+  test("delete removes the task and returns it", async () => {
+    const repo = await createRepo();
+    await repo.save({ task: task() });
+
+    expect(await repo.delete({ id: idOf(1) })).toEqual(task());
+    expect(await repo.get({ id: idOf(1) })).toBeUndefined();
+  });
+
+  test("delete returns undefined for an unknown id", async () => {
+    const repo = await createRepo();
+
+    expect(await repo.delete({ id: idOf(999) })).toBeUndefined();
   });
 });

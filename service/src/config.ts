@@ -7,6 +7,7 @@ const configSchema = z
     logLevel: z.enum(["debug", "info", "warn", "error"]),
     host: z.string().min(1),
     port: z.coerce.number().int().min(1).max(65535),
+    databaseUrl: z.url({ protocol: /^postgres(ql)?$/ }),
   })
   .readonly(); // parse() returns a frozen object
 
@@ -32,12 +33,13 @@ export function loadConfig({ env = process.env }: LoadConfigParameters = {}): Co
     logLevel: env["TASKTOGETHER_LOG_LEVEL"],
     host: env["TASKTOGETHER_HOST"],
     port: env["PORT"],
+    databaseUrl: env["TASKTOGETHER_DATABASE_URL"],
   });
   if (!result.success) throw new ConfigValidationError({ cause: result.error });
   return result.data;
 }
 
-/** Allow-list of fields that are safe to log. Add secrets to Config, not here. */
+/** Allow-list of fields that are safe to log. `databaseUrl` stays out: it holds the password. */
 export function getPrintableConfig(config: Config): Partial<Config> {
   return {
     env: config.env,

@@ -1,19 +1,24 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { pino } from "pino";
 import { ValidationError } from "../../validator";
 import { EmptyTaskUpdateError, TaskNotFoundError } from "./task-errors";
 import { taskIdSchema } from "./task-models";
-import { createInMemoryTaskRepo } from "./task-repo";
+import { createTestDatabase, resetDatabase } from "../../testing";
+import { createDrizzleTaskRepo } from "./task-repo";
 import { createTaskService } from "./task-service";
 
 const idOf = (n: number) => taskIdSchema.parse(`tsk-${String(n).padStart(21, "0")}`);
 const unknownId = idOf(999);
 
-const setup = () => {
+const database = await createTestDatabase();
+afterAll(() => database.dispose());
+
+const setup = async () => {
+  await resetDatabase(database.db);
   const clock = { current: new Date("2026-01-01T00:00:00.000Z") };
   let issued = 0;
   const service = createTaskService({
-    taskRepo: createInMemoryTaskRepo(),
+    taskRepo: createDrizzleTaskRepo({ db: database.db }),
     logger: pino({ level: "silent" }),
     newId: () => idOf(++issued),
     now: () => clock.current,
@@ -26,7 +31,7 @@ const setup = () => {
 
 describe("create", () => {
   test("stores the task and returns it", async () => {
-    const { service, clock } = setup();
+    const { service, clock } = await setup();
 
     const { result } = await service.create({ title: " Buy milk ", description: "2 litres" });
 
@@ -41,7 +46,7 @@ describe("create", () => {
   });
 
   test("stores nothing when the request is invalid", async () => {
-    const { service } = setup();
+    const { service } = await setup();
 
     await expect(service.create({ title: "", description: "" })).rejects.toBeInstanceOf(ValidationError);
 
@@ -51,13 +56,13 @@ describe("create", () => {
 
 describe("get", () => {
   test("throws TaskNotFoundError for an unknown id", async () => {
-    const { service } = setup();
+    const { service } = await setup();
 
     await expect(service.get({ id: unknownId })).rejects.toBeInstanceOf(TaskNotFoundError);
   });
 
   test("throws ValidationError for a malformed id", async () => {
-    const { service } = setup();
+    const { service } = await setup();
 
     await expect(service.get({ id: "nope" })).rejects.toBeInstanceOf(ValidationError);
   });
@@ -65,7 +70,7 @@ describe("get", () => {
 
 describe("list", () => {
   test("returns tasks in creation order", async () => {
-    const { service } = setup();
+    const { service } = await setup();
     await service.create({ title: "first", description: "" });
     await service.create({ title: "second", description: "" });
 
@@ -77,7 +82,7 @@ describe("list", () => {
 
 describe("update", () => {
   test("persists the change and moves updatedAt", async () => {
-    const { service, clock } = setup();
+    const { service, clock } = await setup();
     const { result: created } = await service.create({ title: "a", description: "before" });
     clock.current = new Date("2026-01-02T00:00:00.000Z");
 
@@ -88,7 +93,7 @@ describe("update", () => {
   });
 
   test("leaves the stored task alone when the request is invalid", async () => {
-    const { service } = setup();
+    const { service } = await setup();
     const { result: created } = await service.create({ title: "a", description: "" });
 
     await expect(service.update({ id: created.id, title: undefined })).rejects.toBeInstanceOf(EmptyTaskUpdateError);
@@ -97,13 +102,13 @@ describe("update", () => {
   });
 
   test("rejects an invalid request before looking the task up", async () => {
-    const { service } = setup();
+    const { service } = await setup();
 
     await expect(service.update({ id: unknownId, title: " " })).rejects.toBeInstanceOf(ValidationError);
   });
 
   test("throws TaskNotFoundError for an unknown id", async () => {
-    const { service } = setup();
+    const { service } = await setup();
 
     await expect(service.update({ id: unknownId, title: "x" })).rejects.toBeInstanceOf(TaskNotFoundError);
   });
@@ -111,7 +116,7 @@ describe("update", () => {
 
 describe("delete", () => {
   test("removes the task and returns it", async () => {
-    const { service } = setup();
+    const { service } = await setup();
     const { result: created } = await service.create({ title: "a", description: "" });
 
     const { result } = await service.delete({ id: created.id });
@@ -121,7 +126,7 @@ describe("delete", () => {
   });
 
   test("throws TaskNotFoundError for an unknown id", async () => {
-    const { service } = setup();
+    const { service } = await setup();
 
     await expect(service.delete({ id: unknownId })).rejects.toBeInstanceOf(TaskNotFoundError);
   });
@@ -131,7 +136,7 @@ describe("context", () => {
   test("logs to the logger in the context instead of the service's own", async () => {
     const lines: string[] = [];
     const logger = pino({ level: "info" }, { write: (line: string) => void lines.push(line) });
-    const { service } = setup();
+    const { service } = await setup();
 
     await service.create({ title: "a", description: "" }, { logger: logger.child({ requestId: "req-1" }) });
 

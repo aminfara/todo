@@ -10,10 +10,13 @@ src/
   index.ts                                          type-only AppType for the app package
   contracts.ts                                      browser-safe re-export of each module's contracts
   config.ts  logger.ts  errors.ts  id.ts  validator.ts  common-types.ts  testing.ts
+  database.ts  migrate.ts                           Drizzle on Bun SQL; the release migration step
   modules/<name>/
     index.ts             public API for server code
     <name>-contracts.ts  public API for the browser: schemas and types only
     <name>-models.ts  <name>-domain.ts  <name>-service.ts  <name>-repo.ts  <name>-routes.ts  <name>-errors.ts
+    <name>-schema.ts     the module's Drizzle tables; only its repo touches them
+drizzle/                 generated SQL migrations, committed
 ```
 
 - Code outside a module imports only its `index.ts`; `src/contracts.ts` is the one importer of `<name>-contracts.ts`. Other modules call the service, never the repo. When a second module lands, add an architecture test for this, since TypeScript cannot make files package-private.
@@ -39,6 +42,14 @@ src/
 - Zod schemas are the source of truth; derive request and response schemas from the entity with `pick`, `omit`, `partial`. Request types are `z.input`, response types `z.output`. Ids are branded (`TaskId`).
 - An error's HTTP status is its category. Errors subclass the generic HTTP errors in `errors.ts` by meaning (`EmptyTaskUpdateError` is a `BadRequestError`) and live beside the code that throws them. Only `app.onError` and `app.notFound` turn errors into responses, and unexpected errors return a generic 500.
 
+## Persistence
+
+- Postgres through Drizzle. Production and dev use Bun's SQL driver (`drizzle-orm/bun-sql`); tests use PGlite, an in-memory Postgres. Repos depend on the `Db` type in `database.ts`, which both drivers satisfy.
+- Change a `<name>-schema.ts`, then run `bun run db:generate` and commit the migration.
+- Production never migrates on start: the release runs `bun run db:migrate` once, and the service refuses to start (`DatabaseNotMigratedError`) while a migration is pending. Dev applies pending migrations on start; tests migrate PGlite once.
+- Repos trust rows rather than parsing them: the service validated every entity before saving it and the columns enforce the types. Map columns, restore the branded id with a type assertion, and keep columns such as `seq` (insertion order) inside the repo.
+- Dev Postgres runs in Podman: `bun run db:up` at the repo root starts the Podman machine if needed, then `compose.yaml`. `bun --watch` does not reload `.env`; restart the service after changing it.
+
 ## Config, logging, lifecycle
 
 - `loadConfig({ env })` parses env vars into a frozen object with no defaults in code. Prefix vars `TASKTOGETHER_` (except `NODE_ENV`, `PORT`), document them in `.env.example`, and log config only through `getPrintableConfig`.
@@ -47,6 +58,7 @@ src/
 
 ## Testing
 
-- Domain rules and validation: unit tests on `<name>-domain.ts`. Use cases: service tests with the in-memory repo and injected `now` and `newId`. HTTP boundary: `src/app.test.ts` through `testClient`, which types requests and responses from the routes.
-- The in-memory repo copies on read and write, like a database. When a database repo lands, run one contract test against both.
+- Domain rules and validation: unit tests on `<name>-domain.ts`. Use cases: service tests with the Drizzle repo on PGlite and injected `now` and `newId`. HTTP boundary: `src/app.test.ts` through `testClient`, which types requests and responses from the routes.
+- `<name>-repo.test.ts` tests the Drizzle repo on PGlite. There is no in-memory repo: every test that stores data uses PGlite. To fake a failure or odd output, override the repo with `stubTaskRepo({ ... })` from `testing.ts`, whose unstubbed methods throw.
+- Each test file creates one PGlite with `createTestDatabase` (a clone of one migrated template, about 100 ms) and calls `resetDatabase` before each test (a few ms). Pass it to `createTestContainer({ database })`; wiring a container per test is cheap. Dispose every container and database a test file creates.
 - `await` every `expect(...).rejects`. Use a well-formed unknown id for 404 and a malformed one for 400.

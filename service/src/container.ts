@@ -1,7 +1,8 @@
 import { loadConfig, type Config } from "./config";
+import { connectDatabase, type ConnectDatabaseParameters, type Database } from "./database";
 import { createLogger, type Logger } from "./logger";
 import {
-  createInMemoryTaskRepo,
+  createDrizzleTaskRepo,
   createTaskRoutes,
   createTaskService,
   type TaskRepo,
@@ -18,6 +19,9 @@ export interface RequestScope {
 export type ContainerOverrides = Partial<{
   config: Config;
   logger: Logger;
+  /** Replaces how the container connects; the container still owns and disposes the result. */
+  connectDatabase: (parameters: ConnectDatabaseParameters) => Promise<Database>;
+  database: Database;
   taskRepo: TaskRepo;
   taskService: TaskService;
 }>;
@@ -28,7 +32,7 @@ export type ContainerOverrides = Partial<{
  *
  * The container disposes what it created, in reverse order, and leaves overrides to their owner.
  */
-export function createContainer(overrides: ContainerOverrides = {}) {
+export async function createContainer(overrides: ContainerOverrides = {}) {
   // Disposes in reverse order of registration, and still runs the rest when one throws.
   const disposables = new AsyncDisposableStack();
   const own = <T extends object>(module: T): T => {
@@ -39,13 +43,18 @@ export function createContainer(overrides: ContainerOverrides = {}) {
 
   const config = overrides.config ?? loadConfig();
   const logger = overrides.logger ?? createLogger({ config });
-  const taskRepo = overrides.taskRepo ?? own(createInMemoryTaskRepo());
+  const connect = overrides.connectDatabase ?? connectDatabase;
+  // Production never migrates on start: `bun run db:migrate` does that once per release.
+  const migrations = config.env === "production" ? "require" : "apply";
+  const database = overrides.database ?? own(await connect({ url: config.databaseUrl, migrations }));
+  const taskRepo = overrides.taskRepo ?? own(createDrizzleTaskRepo({ db: database.db }));
   const taskService = overrides.taskService ?? own(createTaskService({ taskRepo, logger }));
   const taskRoutes = createTaskRoutes({ taskService });
 
   return {
     config,
     logger,
+    database,
     taskRepo,
     taskService,
     taskRoutes,
@@ -65,4 +74,4 @@ export function createContainer(overrides: ContainerOverrides = {}) {
   };
 }
 
-export type Container = ReturnType<typeof createContainer>;
+export type Container = Awaited<ReturnType<typeof createContainer>>;
