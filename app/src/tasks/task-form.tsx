@@ -26,22 +26,39 @@ export function TaskForm({ intent, task, submitLabel, onDone, onCancel }: TaskFo
   }, [fetcher.state, fetcher.data]);
 
   return (
-    <fetcher.Form method="post" ref={formRef} className="task-form">
+    <fetcher.Form method="post" ref={formRef} className="fieldset">
       <input type="hidden" name="intent" value={intent} />
       {task && <input type="hidden" name="id" value={task.id} />}
-      <input name="title" defaultValue={task?.title} placeholder="Title" maxLength={200} required />
-      <textarea name="description" defaultValue={task?.description} placeholder="Description" maxLength={2000} />
+      <input
+        className="input w-full"
+        name="title"
+        defaultValue={task?.title}
+        placeholder="Title"
+        maxLength={200}
+        required
+      />
+      <textarea
+        className="textarea w-full"
+        name="description"
+        defaultValue={task?.description}
+        placeholder="Description"
+        maxLength={2000}
+      />
       {issues.map((issue) => (
-        <p key={issue} role="alert" className="error">
+        <p key={issue} role="alert" className="label text-error">
           {issue}
         </p>
       ))}
-      <div>
-        <button type="submit" disabled={fetcher.state !== "idle"}>
+      <div className="join">
+        <button
+          type="submit"
+          className="btn btn-primary btn-sm join-item"
+          disabled={fetcher.state !== "idle"}
+        >
           {submitLabel}
         </button>
         {onCancel && (
-          <button type="button" onClick={onCancel}>
+          <button type="button" className="btn btn-sm join-item" onClick={onCancel}>
             Cancel
           </button>
         )}

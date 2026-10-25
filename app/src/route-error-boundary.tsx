@@ -13,18 +13,26 @@ export function RouteErrorBoundary() {
       : "Something went wrong";
 
   return (
-    <main className="app">
-      <h1>Something went wrong</h1>
-      <p role="alert" className="error">
-        {message}
-      </p>
-      {notFound ? (
-        <Link to="/">Go to your tasks</Link>
-      ) : (
-        <button onClick={() => revalidator.revalidate()} disabled={revalidator.state !== "idle"}>
-          Try again
-        </button>
-      )}
+    <main className="card max-w-xl mx-auto my-8">
+      <div className="card-body">
+        <h1 className="card-title text-3xl">Something went wrong</h1>
+        <p role="alert" className="alert alert-error">
+          {message}
+        </p>
+        {notFound ? (
+          <Link to="/" className="link">
+            Go to your tasks
+          </Link>
+        ) : (
+          <button
+            className="btn btn-primary"
+            onClick={() => revalidator.revalidate()}
+            disabled={revalidator.state !== "idle"}
+          >
+            Try again
+          </button>
+        )}
+      </div>
     </main>
   );
 }

@@ -1,6 +1,12 @@
 import { createTaskRequestSchema, updateTaskRequestSchema } from "@tasktogether/service/contracts";
 import { useState } from "react";
-import { data, useFetcher, useLoaderData, type ActionFunctionArgs, type RouteObject } from "react-router";
+import {
+  data,
+  useFetcher,
+  useLoaderData,
+  type ActionFunctionArgs,
+  type RouteObject,
+} from "react-router";
 import type { ZodType } from "zod";
 import { RouteErrorBoundary } from "../route-error-boundary";
 import { TaskForm, type TaskActionResult } from "./task-form";
@@ -75,15 +81,17 @@ export function createTaskRoute({ api }: CreateTaskRouteParameters): RouteObject
 function TasksPage() {
   const { tasks } = useLoaderData<() => Promise<LoaderData>>();
   return (
-    <main className="app">
-      <h1>Tasks</h1>
-      <TaskForm intent="create" submitLabel="Add" />
-      <ul className="task-list">
-        {tasks.map((task) => (
-          <TaskItem key={task.id} task={task} />
-        ))}
-      </ul>
-      {tasks.length === 0 && <p>No tasks yet.</p>}
+    <main className="card max-w-xl mx-auto my-8">
+      <div className="card-body">
+        <h1 className="card-title text-3xl">Tasks</h1>
+        <TaskForm intent="create" submitLabel="Add" />
+        <ul className="list bg-base-100 rounded-box shadow-md">
+          {tasks.map((task) => (
+            <TaskItem key={task.id} task={task} />
+          ))}
+          {tasks.length === 0 && <li className="list-row">No tasks yet.</li>}
+        </ul>
+      </div>
     </main>
   );
 }
@@ -95,7 +103,7 @@ function TaskItem({ task }: { task: Task }) {
 
   if (editing) {
     return (
-      <li>
+      <li className="list-row">
         <TaskForm
           intent="update"
           task={task}
@@ -108,22 +116,30 @@ function TaskItem({ task }: { task: Task }) {
   }
 
   return (
-    <li>
-      <strong>{task.title}</strong>
-      {task.description && <p>{task.description}</p>}
-      <button onClick={() => setEditing(true)}>Edit</button>
-      <remover.Form method="post" style={{ display: "inline" }}>
+    <li className="list-row">
+      <div className="list-col-grow">
+        <div>{task.title}</div>
+        {task.description && <div className="text-xs opacity-60">{task.description}</div>}
+        {removeIssues.map((issue) => (
+          <div key={issue} role="alert" className="text-xs text-error">
+            {issue}
+          </div>
+        ))}
+      </div>
+      <button className="btn btn-sm" onClick={() => setEditing(true)}>
+        Edit
+      </button>
+      <remover.Form method="post">
         <input type="hidden" name="intent" value="delete" />
         <input type="hidden" name="id" value={task.id} />
-        <button type="submit" disabled={remover.state !== "idle"}>
+        <button
+          type="submit"
+          className="btn btn-sm btn-error btn-soft"
+          disabled={remover.state !== "idle"}
+        >
           Delete
         </button>
       </remover.Form>
-      {removeIssues.map((issue) => (
-        <p key={issue} role="alert" className="error">
-          {issue}
-        </p>
-      ))}
     </li>
   );
 }
