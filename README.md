@@ -9,7 +9,10 @@ A fullstack task app, kept as a template for new projects. Bun monorepo (Bun >= 
 
 ```bash
 bun install
-bun run dev        # runs every workspace's dev script
+cp app/.env.example app/.env             # config has no defaults: both packages stop without a .env
+cp service/.env.example service/.env
+bun run db:up                            # dev Postgres in Podman
+bun run dev                              # runs every workspace's dev script
 bun run typecheck
 bun test
 ```

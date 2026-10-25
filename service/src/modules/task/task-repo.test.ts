@@ -24,9 +24,9 @@ const createRepo = async (): Promise<TaskRepo> => {
 };
 
 describe("createDrizzleTaskRepo", () => {
-  test("get returns a saved task with its Dates intact", async () => {
+  test("get returns an inserted task with its Dates intact", async () => {
     const repo = await createRepo();
-    await repo.save({ task: task() });
+    await repo.insert({ task: task() });
 
     const read = await repo.get({ id: idOf(1) });
 
@@ -37,7 +37,7 @@ describe("createDrizzleTaskRepo", () => {
   test("keeps a title and description at their maximum lengths", async () => {
     const repo = await createRepo();
     const long = task({ title: "t".repeat(200), description: "d".repeat(2000) });
-    await repo.save({ task: long });
+    await repo.insert({ task: long });
 
     expect(await repo.get({ id: long.id })).toEqual(long);
   });
@@ -48,23 +48,38 @@ describe("createDrizzleTaskRepo", () => {
     expect(await repo.get({ id: idOf(999) })).toBeUndefined();
   });
 
-  test("save with an existing id replaces the stored task", async () => {
+  test("update writes only the given columns and returns the stored task", async () => {
     const repo = await createRepo();
-    await repo.save({ task: task() });
+    await repo.insert({ task: task({ title: "old", description: "keep" }) });
 
-    await repo.save({ task: task({ title: "changed", description: "new", updatedAt: later }) });
+    const updated = await repo.update({ id: idOf(1), changes: { title: "new", updatedAt: later } });
 
-    expect(await repo.get({ id: idOf(1) })).toEqual(
-      task({ title: "changed", description: "new", updatedAt: later }),
-    );
-    expect(await repo.list()).toHaveLength(1);
+    expect(updated).toEqual(task({ title: "new", description: "keep", updatedAt: later }));
+    expect(await repo.get({ id: idOf(1) })).toEqual(updated);
   });
 
-  test("list returns tasks in the order they were first saved, even with equal timestamps", async () => {
+  test("update keeps columns that changed since the caller last read the task", async () => {
     const repo = await createRepo();
-    await repo.save({ task: task({ id: idOf(2), title: "first" }) });
-    await repo.save({ task: task({ id: idOf(1), title: "second" }) });
-    await repo.save({ task: task({ id: idOf(2), title: "first, updated", updatedAt: later }) });
+    await repo.insert({ task: task({ title: "old", description: "old" }) });
+    await repo.update({ id: idOf(1), changes: { description: "written by someone else" } });
+
+    await repo.update({ id: idOf(1), changes: { title: "new" } });
+
+    expect(await repo.get({ id: idOf(1) })).toMatchObject({ title: "new", description: "written by someone else" });
+  });
+
+  test("update returns undefined and stores nothing for an unknown id", async () => {
+    const repo = await createRepo();
+
+    expect(await repo.update({ id: idOf(999), changes: { title: "x" } })).toBeUndefined();
+    expect(await repo.list()).toEqual([]);
+  });
+
+  test("list returns tasks in the order they were inserted, even with equal timestamps", async () => {
+    const repo = await createRepo();
+    await repo.insert({ task: task({ id: idOf(2), title: "first" }) });
+    await repo.insert({ task: task({ id: idOf(1), title: "second" }) });
+    await repo.update({ id: idOf(2), changes: { title: "first, updated", updatedAt: later } });
 
     const titles = (await repo.list()).map((stored) => stored.title);
 
@@ -73,7 +88,7 @@ describe("createDrizzleTaskRepo", () => {
 
   test("delete removes the task and returns it", async () => {
     const repo = await createRepo();
-    await repo.save({ task: task() });
+    await repo.insert({ task: task() });
 
     expect(await repo.delete({ id: idOf(1) })).toEqual(task());
     expect(await repo.get({ id: idOf(1) })).toBeUndefined();

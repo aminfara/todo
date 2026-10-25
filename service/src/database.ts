@@ -1,4 +1,5 @@
 import { SQL } from "bun";
+import { fileURLToPath } from "node:url";
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { migrate } from "drizzle-orm/bun-sql/migrator";
@@ -18,7 +19,7 @@ export interface Database {
 /** Shared by every driver, so the column names match the migrations drizzle-kit generates. */
 export const drizzleConfig = { casing: "snake_case" } satisfies DrizzleConfig;
 
-export const migrationsFolder = new URL("../drizzle", import.meta.url).pathname;
+export const migrationsFolder = fileURLToPath(new URL("../drizzle", import.meta.url));
 
 export class DatabaseNotMigratedError extends InternalServerError {
   constructor(pending: number) {

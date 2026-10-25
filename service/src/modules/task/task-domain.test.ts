@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { ValidationError } from "../../validator";
-import { applyTaskUpdate, newTask, parseTaskUpdate } from "./task-domain";
+import { ValidationError } from "../../validation";
+import { newTask, parseTaskUpdate, taskUpdatePatch } from "./task-domain";
 import { EmptyTaskUpdateError } from "./task-errors";
-import { taskIdSchema, type Task } from "./task-models";
+import { taskIdSchema } from "./task-models";
 
 const id = taskIdSchema.parse(`tsk-${"1".repeat(21)}`);
 const at = new Date("2026-01-01T00:00:00.000Z");
@@ -78,25 +78,17 @@ describe("parseTaskUpdate", () => {
   });
 });
 
-describe("applyTaskUpdate", () => {
-  const task: Task = { id, title: "old", description: "keep", createdAt: at, updatedAt: at };
+describe("taskUpdatePatch", () => {
   const later = new Date("2026-01-02T00:00:00.000Z");
 
-  test("changes only the supplied fields and moves updatedAt", () => {
-    expect(applyTaskUpdate({ task, changes: { title: "new" }, at: later })).toEqual({
-      ...task,
-      title: "new",
-      updatedAt: later,
-    });
+  test("holds only the supplied fields and the new updatedAt", () => {
+    expect(taskUpdatePatch({ changes: { title: "new" }, at: later })).toEqual({ title: "new", updatedAt: later });
   });
 
   test("allows clearing the description", () => {
-    expect(applyTaskUpdate({ task, changes: { description: "" }, at: later }).description).toBe("");
-  });
-
-  test("does not mutate the task it was given", () => {
-    applyTaskUpdate({ task, changes: { title: "new" }, at: later });
-
-    expect(task.title).toBe("old");
+    expect(taskUpdatePatch({ changes: { description: "" }, at: later })).toEqual({
+      description: "",
+      updatedAt: later,
+    });
   });
 });

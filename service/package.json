@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun --watch src/main.ts",
     "typecheck": "bun check",
-    "db:generate": "drizzle-kit generate",
+    "db:generate": "bun --bun drizzle-kit generate",
     "db:migrate": "bun src/migrate.ts"
   },
   "dependencies": {

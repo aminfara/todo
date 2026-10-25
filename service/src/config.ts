@@ -7,6 +7,7 @@ const configSchema = z
     logLevel: z.enum(["debug", "info", "warn", "error"]),
     host: z.string().min(1),
     port: z.coerce.number().int().min(1).max(65535),
+    corsOrigin: z.url({ protocol: /^https?$/ }).refine((value) => URL.canParse(value) && new URL(value).origin === value, "must be an origin"),
     databaseUrl: z.url({ protocol: /^postgres(ql)?$/ }),
   })
   .readonly(); // parse() returns a frozen object
@@ -33,6 +34,7 @@ export function loadConfig({ env = process.env }: LoadConfigParameters = {}): Co
     logLevel: env["TASKTOGETHER_LOG_LEVEL"],
     host: env["TASKTOGETHER_HOST"],
     port: env["PORT"],
+    corsOrigin: env["TASKTOGETHER_CORS_ORIGIN"],
     databaseUrl: env["TASKTOGETHER_DATABASE_URL"],
   });
   if (!result.success) throw new ConfigValidationError({ cause: result.error });
@@ -46,5 +48,6 @@ export function getPrintableConfig(config: Config): Partial<Config> {
     logLevel: config.logLevel,
     host: config.host,
     port: config.port,
+    corsOrigin: config.corsOrigin,
   };
 }

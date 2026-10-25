@@ -7,6 +7,7 @@ const validEnv = {
   TASKTOGETHER_LOG_LEVEL: "warn",
   TASKTOGETHER_HOST: "0.0.0.0",
   PORT: "8080",
+  TASKTOGETHER_CORS_ORIGIN: "https://app.example.com",
   TASKTOGETHER_DATABASE_URL: "postgres://user:pass@db:5432/tasktogether",
 };
 
@@ -17,6 +18,7 @@ describe("loadConfig", () => {
       logLevel: "warn",
       host: "0.0.0.0",
       port: 8080,
+      corsOrigin: "https://app.example.com",
       databaseUrl: "postgres://user:pass@db:5432/tasktogether",
     });
   });
@@ -37,6 +39,8 @@ describe("loadConfig", () => {
     ["port above 65535", { PORT: "70000" }],
     ["non-numeric port", { PORT: "abc" }],
     ["empty host", { TASKTOGETHER_HOST: "" }],
+    ["wildcard CORS origin", { TASKTOGETHER_CORS_ORIGIN: "*" }],
+    ["CORS origin with a path", { TASKTOGETHER_CORS_ORIGIN: "https://app.example.com/x" }],
     ["non-Postgres database URL", { TASKTOGETHER_DATABASE_URL: "mysql://db/tasktogether" }],
   ])("throws ConfigValidationError for %s", (_name, override) => {
     const env = { ...validEnv, ...override };

@@ -8,13 +8,7 @@ import {
   type TaskRepo,
   type TaskService,
 } from "./modules/task";
-
-/** Per-request dependencies. Add anything that must not outlive one request (current user, ...). */
-export interface RequestScope {
-  requestId: string;
-  logger: Logger;
-  dispose(): Promise<void>;
-}
+import type { RequestScope } from "./request-scope";
 
 export type ContainerOverrides = Partial<{
   config: Config;
@@ -41,37 +35,43 @@ export async function createContainer(overrides: ContainerOverrides = {}) {
     return module;
   };
 
-  const config = overrides.config ?? loadConfig();
-  const logger = overrides.logger ?? createLogger({ config });
-  const connect = overrides.connectDatabase ?? connectDatabase;
-  // Production never migrates on start: `bun run db:migrate` does that once per release.
-  const migrations = config.env === "production" ? "require" : "apply";
-  const database = overrides.database ?? own(await connect({ url: config.databaseUrl, migrations }));
-  const taskRepo = overrides.taskRepo ?? own(createDrizzleTaskRepo({ db: database.db }));
-  const taskService = overrides.taskService ?? own(createTaskService({ taskRepo, logger }));
-  const taskRoutes = createTaskRoutes({ taskService });
+  try {
+    const config = overrides.config ?? loadConfig();
+    const logger = overrides.logger ?? createLogger({ config });
+    const connect = overrides.connectDatabase ?? connectDatabase;
+    // Production never migrates on start: `bun run db:migrate` does that once per release.
+    const migrations = config.env === "production" ? "require" : "apply";
+    const database = overrides.database ?? own(await connect({ url: config.databaseUrl, migrations }));
+    const taskRepo = overrides.taskRepo ?? own(createDrizzleTaskRepo({ db: database.db }));
+    const taskService = overrides.taskService ?? own(createTaskService({ taskRepo, logger }));
+    const taskRoutes = createTaskRoutes({ taskService });
 
-  return {
-    config,
-    logger,
-    database,
-    taskRepo,
-    taskService,
-    taskRoutes,
+    return {
+      config,
+      logger,
+      database,
+      taskRepo,
+      taskService,
+      taskRoutes,
 
-    createRequestScope({ requestId }: { requestId: string }): RequestScope {
-      return {
-        requestId,
-        logger: logger.child({ requestId }),
-        dispose: async () => {},
-      };
-    },
+      createRequestScope({ requestId }: { requestId: string }): RequestScope {
+        return {
+          requestId,
+          logger: logger.child({ requestId }),
+          dispose: async () => {},
+        };
+      },
 
-    /** Rejects with the first failure (a SuppressedError when several fail) after trying them all. */
-    async dispose() {
-      await disposables.disposeAsync();
-    },
-  };
+      /** Rejects with the first failure (a SuppressedError when several fail) after trying them all. */
+      async dispose() {
+        await disposables.disposeAsync();
+      },
+    };
+  } catch (err) {
+    // Wiring failed after something opened: release it, and report the wiring error, not the cleanup's.
+    await disposables.disposeAsync().catch(() => {});
+    throw err;
+  }
 }
 
 export type Container = Awaited<ReturnType<typeof createContainer>>;

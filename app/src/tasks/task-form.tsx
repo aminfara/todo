@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
-import type { TaskActionResult } from "./task-route";
 import type { Task } from "./task-api";
+
+/** What the route action returns to the form that submitted it. */
+export type TaskActionResult = { ok: true } | { ok: false; issues: string[] };
 
 export interface TaskFormProps {
   intent: "create" | "update";

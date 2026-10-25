@@ -2,9 +2,10 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { testClient } from "hono/testing";
 import { pino } from "pino";
 import { createApp } from "./app";
+import { InternalServerError } from "./errors";
 import type { ContainerOverrides } from "./container";
-import { taskIdSchema } from "./modules/task";
-import { createTestContainer, createTestDatabase, resetDatabase, stubTaskRepo } from "./testing";
+import { stubTaskRepo, taskIdSchema } from "./modules/task";
+import { createTestContainer, createTestDatabase, resetDatabase, testConfig } from "./testing";
 
 // HTTP boundary only: status codes, input and error mapping, output stripping, request ids and
 // logging. Domain rules are tested in modules/task.
@@ -188,6 +189,22 @@ describe("error handling", () => {
     expect((await errorOf(res)).requestId).toBe("req-abc");
   });
 
+  test("an expected 5xx error gives a generic message, not its own", async () => {
+    const taskRepo = stubTaskRepo({
+      get: async () => {
+        throw new InternalServerError("connect to db-host-3 failed");
+      },
+    });
+    client = await clientFor({ taskRepo });
+
+    const res = await client.tasks[":id"].$get({ param: { id: unknownId } });
+
+    expect(res.status).toBe(500);
+    const error = await errorOf(res);
+    expect(error.message).toBe("Internal Server Error");
+    expect(JSON.stringify(error)).not.toContain("db-host-3");
+  });
+
   test("unexpected failures give a generic 500 that does not leak the cause", async () => {
     const taskRepo = stubTaskRepo({
       get: async () => {
@@ -205,6 +222,27 @@ describe("error handling", () => {
   });
 });
 
+describe("cors", () => {
+  const preflight = async (origin: string) =>
+    (await appFor()).request("/tasks", {
+      method: "OPTIONS",
+      headers: { origin, "access-control-request-method": "POST" },
+    });
+
+  test("allows the configured origin", async () => {
+    const res = await preflight(testConfig.corsOrigin);
+
+    expect(res.headers.get("access-control-allow-origin")).toBe(testConfig.corsOrigin);
+  });
+
+  test("does not allow another origin", async () => {
+    const res = await preflight("https://evil.example.com");
+
+    expect(res.headers.get("access-control-allow-origin")).not.toBe("https://evil.example.com");
+    expect(res.headers.get("access-control-allow-origin")).not.toBe("*");
+  });
+});
+
 describe("logging", () => {
   const logTo = (lines: string[]) => pino({ level: "debug" }, { write: (line: string) => void lines.push(line) });
   const entry = (lines: string[], msg: string) => lines.map((l) => JSON.parse(l)).find((l) => l.msg === msg);
@@ -216,6 +254,30 @@ describe("logging", () => {
     await client.tasks[":id"].$get({ param: { id: unknownId } });
 
     expect(entry(lines, `Task ${unknownId} not found`)?.level).toBe(40);
+  });
+
+  test("logs an unknown route at warn", async () => {
+    const lines: string[] = [];
+    client = await clientFor({ logger: logTo(lines) });
+    const app = await appFor({ logger: logTo(lines) });
+
+    await app.request("/nowhere");
+
+    expect(entry(lines, "Route GET /nowhere not found")?.level).toBe(40);
+  });
+
+  test("logs an expected 5xx error at error with its real message", async () => {
+    const lines: string[] = [];
+    const taskRepo = stubTaskRepo({
+      list: async () => {
+        throw new InternalServerError("connect to db-host-3 failed");
+      },
+    });
+    client = await clientFor({ logger: logTo(lines), taskRepo });
+
+    await client.tasks.$get();
+
+    expect(entry(lines, "connect to db-host-3 failed")?.level).toBe(50);
   });
 
   test("logs unexpected failures at error", async () => {

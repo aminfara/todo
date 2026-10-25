@@ -1,20 +1,17 @@
 import type { AppType } from "@tasktogether/service";
-import type {
-  CreateTaskRequest,
-  DeleteTaskRequest,
-  Task as TaskModel,
-  UpdateTaskRequest,
+import {
+  errorResponseSchema,
+  type CreateTaskRequest,
+  type DeleteTaskRequest,
+  type Issue,
+  type Task as TaskModel,
+  type UpdateTaskRequest,
 } from "@tasktogether/service/contracts";
 import { hc } from "hono/client";
 import type { JSONParsed } from "hono/utils/types";
 
 // The backend model as it arrives over JSON (Dates become ISO strings).
 export type Task = JSONParsed<TaskModel>;
-
-export interface Issue {
-  path: string;
-  message: string;
-}
 
 /** A 4xx answer: something the user can correct. Anything else is thrown as a plain Error. */
 export class ApiError extends Error {
@@ -28,15 +25,14 @@ export class ApiError extends Error {
 }
 
 type Res<Body = unknown> = { ok: boolean; status: number; statusText: string; json(): Promise<Body> };
-type ErrorBody = { error?: { message?: string; details?: { issues?: Issue[] } } };
 
 // hc doesn't throw on non-2xx; turn those into errors.
 const ok = async <R extends Res>(res: R): Promise<R> => {
   if (res.ok) return res;
-  const body = (await res.json().catch(() => null)) as ErrorBody | null;
-  const message = body?.error?.message ?? res.statusText;
+  const body = errorResponseSchema.safeParse(await res.json().catch(() => null));
+  const message = body.success ? body.data.error.message : res.statusText;
   if (res.status >= 400 && res.status < 500) {
-    throw new ApiError(message, res.status, body?.error?.details?.issues);
+    throw new ApiError(message, res.status, body.success ? body.data.error.details?.issues : undefined);
   }
   throw new Error(`The server failed (${res.status}): ${message}`);
 };
@@ -44,12 +40,12 @@ const ok = async <R extends Res>(res: R): Promise<R> => {
 // After ok() the status is 2xx, so the body is the success shape hc inferred from the route.
 const unwrap = async <T>(res: Res<{ result: T }>) => (await (await ok(res)).json()).result;
 
-export interface CreateTasksApiParameters {
+export interface CreateTaskApiParameters {
   baseUrl: string;
   fetch?: typeof fetch;
 }
 
-export function createTasksApi({ baseUrl, fetch }: CreateTasksApiParameters) {
+export function createTaskApi({ baseUrl, fetch }: CreateTaskApiParameters) {
   const client = hc<AppType>(baseUrl, { fetch });
   return {
     list: async () => unwrap(await client.tasks.$get()),
@@ -60,4 +56,4 @@ export function createTasksApi({ baseUrl, fetch }: CreateTasksApiParameters) {
   };
 }
 
-export type TasksApi = ReturnType<typeof createTasksApi>;
+export type TaskApi = ReturnType<typeof createTaskApi>;

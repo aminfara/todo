@@ -1,5 +1,12 @@
 import { createMiddleware } from "hono/factory";
-import type { Container, RequestScope } from "./container";
+import type { Logger } from "./logger";
+
+/** Per-request dependencies. Add anything that must not outlive one request (current user, ...). */
+export interface RequestScope {
+  requestId: string;
+  logger: Logger;
+  dispose(): Promise<void>;
+}
 
 export type AppEnv = { Variables: { scope: RequestScope } };
 
@@ -7,9 +14,9 @@ export type AppEnv = { Variables: { scope: RequestScope } };
  * Creates a RequestScope for each request, logs the request when it completes, and disposes the
  * scope afterwards. Must run after hono/request-id.
  */
-export const requestScope = (container: Pick<Container, "createRequestScope">) =>
+export const requestScope = (createScope: (parameters: { requestId: string }) => RequestScope) =>
   createMiddleware<AppEnv>(async (c, next) => {
-    const scope = container.createRequestScope({ requestId: c.get("requestId") });
+    const scope = createScope({ requestId: c.get("requestId") });
     c.set("scope", scope);
     const start = performance.now();
     try {

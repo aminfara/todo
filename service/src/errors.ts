@@ -1,20 +1,24 @@
 import status from "http-status";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import type { ErrorResponse } from "./error-contracts";
 
 // Only generic HTTP errors live here. Errors specific to one module or function are defined next
 // to the code that throws them (ValidationError, InvalidIdError, TaskNotFoundError, ...).
 
+/** What an error response may carry besides its message. */
+export type ErrorDetails = ErrorResponse["error"]["details"];
+
 export interface AppErrorOptions extends ErrorOptions {
   statusCode: ContentfulStatusCode;
   // Safe to send to clients; never put internals here.
-  details?: unknown;
+  details?: ErrorDetails;
 }
 
 type SubclassOptions = Omit<AppErrorOptions, "statusCode">;
 
 export class AppError extends Error {
   readonly statusCode: ContentfulStatusCode;
-  readonly details: unknown;
+  readonly details: ErrorDetails;
 
   constructor(message: string, { statusCode, details, ...options }: AppErrorOptions) {
     super(message, options);

@@ -8,10 +8,6 @@ export const idSchema = z
 
 export type Id = z.infer<typeof idSchema>;
 
-export const titleSchema = z.string().trim().min(1).max(200);
-
-export const descriptionSchema = z.string().max(2000);
-
 /** Mixin: `entitySchema.extend(timestampsSchema.shape)`. */
 export const timestampsSchema = z.object({
   createdAt: z.date(),

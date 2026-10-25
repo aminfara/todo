@@ -3,4 +3,5 @@
 export * from "./task-contracts";
 export { createDrizzleTaskRepo, type TaskRepo } from "./task-repo";
 export { createTaskRoutes } from "./task-routes";
+export { stubTaskRepo } from "./task-testing";
 export { createTaskService, type TaskService, type TaskServiceContext } from "./task-service";

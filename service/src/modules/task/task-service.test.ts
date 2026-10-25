@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { pino } from "pino";
-import { ValidationError } from "../../validator";
+import { ValidationError } from "../../validation";
 import { EmptyTaskUpdateError, TaskNotFoundError } from "./task-errors";
 import { taskIdSchema } from "./task-models";
 import { createTestDatabase, resetDatabase } from "../../testing";

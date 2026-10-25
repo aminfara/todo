@@ -1,4 +1,4 @@
-import { validate } from "../../validator";
+import { validate } from "../../validation";
 import { EmptyTaskUpdateError } from "./task-errors";
 import {
   createTaskRequestSchema,
@@ -34,12 +34,12 @@ export function parseTaskUpdate(request: UpdateTaskRequest): { id: TaskId; chang
   return { id, changes };
 }
 
-export interface ApplyTaskUpdateParameters {
-  task: Task;
+export interface TaskUpdatePatchParameters {
   changes: TaskChanges;
   at: Date;
 }
 
-export function applyTaskUpdate({ task, changes, at }: ApplyTaskUpdateParameters): Task {
-  return { ...task, ...changes, updatedAt: at };
+/** The columns an update writes: the supplied changes and the new `updatedAt`. */
+export function taskUpdatePatch({ changes, at }: TaskUpdatePatchParameters): TaskChanges & { updatedAt: Date } {
+  return { ...changes, updatedAt: at };
 }

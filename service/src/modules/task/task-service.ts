@@ -1,9 +1,11 @@
 import type { Logger } from "../../logger";
-import { validate } from "../../validator";
+import { validate } from "../../validation";
 import { getUniqueId } from "../../id";
-import { applyTaskUpdate, newTask, parseTaskUpdate } from "./task-domain";
+import { newTask, parseTaskUpdate, taskUpdatePatch } from "./task-domain";
 import { TaskNotFoundError } from "./task-errors";
 import {
+  TASK_ID_PREFIX,
+  taskIdSchema,
   deleteTaskRequestSchema,
   getTaskRequestSchema,
   listTasksRequestSchema,
@@ -21,8 +23,7 @@ import {
 } from "./task-models";
 import type { TaskRepo } from "./task-repo";
 
-// getUniqueId already validated the id against idSchema with this prefix, so the brand is earned.
-const newTaskId = () => getUniqueId("tsk") as TaskId;
+const newTaskId = () => taskIdSchema.parse(getUniqueId(TASK_ID_PREFIX));
 
 /** Per-call information that is not part of a task. */
 export interface TaskServiceContext {
@@ -44,12 +45,6 @@ export interface CreateTaskServiceParameters {
 export function createTaskService({ taskRepo, logger, newId = newTaskId, now = () => new Date() }: CreateTaskServiceParameters) {
   const defaultContext: TaskServiceContext = { logger };
 
-  const getOrThrow = async (id: TaskId) => {
-    const task = await taskRepo.get({ id });
-    if (!task) throw new TaskNotFoundError(id);
-    return task;
-  };
-
   return {
     async list(request: ListTasksRequest = {}, _context = defaultContext): Promise<ListTasksResponse> {
       validate(listTasksRequestSchema, request);
@@ -58,20 +53,22 @@ export function createTaskService({ taskRepo, logger, newId = newTaskId, now = (
 
     async get(request: GetTaskRequest, _context = defaultContext): Promise<GetTaskResponse> {
       const { id } = validate(getTaskRequestSchema, request);
-      return { result: await getOrThrow(id) };
+      const task = await taskRepo.get({ id });
+      if (!task) throw new TaskNotFoundError(id);
+      return { result: task };
     },
 
     async create(request: CreateTaskRequest, context = defaultContext): Promise<CreateTaskResponse> {
       const task = newTask({ request, id: newId(), at: now() });
-      await taskRepo.save({ task });
+      await taskRepo.insert({ task });
       context.logger.info({ taskId: task.id }, "Task created");
       return { result: task };
     },
 
     async update(request: UpdateTaskRequest, context = defaultContext): Promise<UpdateTaskResponse> {
       const { id, changes } = parseTaskUpdate(request);
-      const task = applyTaskUpdate({ task: await getOrThrow(id), changes, at: now() });
-      await taskRepo.save({ task });
+      const task = await taskRepo.update({ id, changes: taskUpdatePatch({ changes, at: now() }) });
+      if (!task) throw new TaskNotFoundError(id);
       context.logger.info({ taskId: id, fields: Object.keys(changes) }, "Task updated");
       return { result: task };
     },

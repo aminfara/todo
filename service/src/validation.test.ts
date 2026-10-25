@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { BadRequestError } from "./errors";
-import { validate, ValidationError } from "./validator";
+import { validate, ValidationError } from "./validation";
 
 const schema = z.object({ name: z.string().trim(), tags: z.array(z.object({ label: z.string().min(1) })) });
 

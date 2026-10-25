@@ -1,27 +1,20 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { taskIdSchema } from "./modules/task";
-import { tasks } from "./modules/task/task-schema";
+import { sql } from "drizzle-orm";
 import { createTestDatabase, resetDatabase } from "./testing";
 
 const database = await createTestDatabase();
 afterAll(() => database.dispose());
 
-const row = (n: number) => ({
-  id: taskIdSchema.parse(`tsk-${String(n).padStart(21, "0")}`),
-  title: "t",
-  description: "",
-  createdAt: new Date(),
-  updatedAt: new Date(),
-});
-
 describe("resetDatabase", () => {
   test("empties every table and restarts identity columns", async () => {
-    await database.db.insert(tasks).values([row(1), row(2)]);
+    const { db } = database;
+    await db.execute(sql`create table reset_probe (seq bigint generated always as identity, name text)`);
+    await db.execute(sql`insert into reset_probe (name) values ('a'), ('b')`);
 
-    await resetDatabase(database.db);
+    await resetDatabase(db);
 
-    expect(await database.db.$count(tasks)).toBe(0);
-    const [inserted] = await database.db.insert(tasks).values(row(3)).returning();
-    expect(inserted!.seq).toBe(1);
+    expect(await db.execute(sql`select count(*)::int as n from reset_probe`)).toMatchObject({ rows: [{ n: 0 }] });
+    await db.execute(sql`insert into reset_probe (name) values ('c')`);
+    expect(await db.execute(sql`select seq::int as seq from reset_probe`)).toMatchObject({ rows: [{ seq: 1 }] });
   });
 });

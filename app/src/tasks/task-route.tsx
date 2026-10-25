@@ -3,17 +3,14 @@ import { useState } from "react";
 import { data, useFetcher, useLoaderData, type ActionFunctionArgs, type RouteObject } from "react-router";
 import type { ZodType } from "zod";
 import { RouteErrorBoundary } from "../route-error-boundary";
-import { TaskForm } from "./task-form";
-import { ApiError, type Task, type TasksApi } from "./task-api";
+import { TaskForm, type TaskActionResult } from "./task-form";
+import { ApiError, type Task, type TaskApi } from "./task-api";
 
-export interface CreateTasksRouteParameters {
-  api: TasksApi;
+export interface CreateTaskRouteParameters {
+  api: TaskApi;
 }
 
 type LoaderData = { tasks: Task[] };
-
-/** What the action returns to the form that submitted it. */
-export type TaskActionResult = { ok: true } | { ok: false; issues: string[] };
 
 // Checked in the browser for instant feedback, reported like the service's own 400; the service
 // validates again and has the last word.
@@ -36,7 +33,7 @@ const fieldsOf = (form: FormData) => ({
  * Router reloads the list after every successful action. Errors the user can fix come back as action
  * data and render next to the form; anything else reaches the error boundary.
  */
-export function createTasksRoute({ api }: CreateTasksRouteParameters): RouteObject {
+export function createTaskRoute({ api }: CreateTaskRouteParameters): RouteObject {
   const run = async (form: FormData) => {
     const id = String(form.get("id") ?? "");
     switch (form.get("intent")) {

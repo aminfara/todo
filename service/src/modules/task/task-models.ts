@@ -1,11 +1,15 @@
 import { z } from "zod";
-import { descriptionSchema, idSchema, timestampsSchema, titleSchema } from "../../common-types";
+import { idSchema, timestampsSchema } from "../../common-types";
 
 // The domain model. Requests and responses are the inputs and outputs of the service operations;
 // route handlers adapt HTTP to these types, never the other way around.
 
+const titleSchema = z.string().trim().min(1).max(200);
+const descriptionSchema = z.string().max(2000);
+
 // Branded: only a parsed or generated id is a TaskId, so an unchecked string cannot reach the repo.
-export const taskIdSchema = idSchema.startsWith("tsk").brand<"TaskId">();
+export const TASK_ID_PREFIX = "tsk";
+export const taskIdSchema = idSchema.startsWith(TASK_ID_PREFIX).brand<"TaskId">();
 export type TaskId = z.output<typeof taskIdSchema>;
 
 export const taskSchema = z

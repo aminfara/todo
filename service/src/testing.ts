@@ -5,7 +5,6 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import type { Config } from "./config";
 import { createContainer, type ContainerOverrides } from "./container";
 import { drizzleConfig, migrationsFolder, type Database, type Db } from "./database";
-import type { TaskRepo } from "./modules/task";
 
 // Logger is silent when env is "test".
 export const testConfig: Config = {
@@ -13,6 +12,7 @@ export const testConfig: Config = {
   logLevel: "info",
   host: "localhost",
   port: 3001,
+  corsOrigin: "http://localhost:3000",
   databaseUrl: "postgres://unused-in-tests",
 };
 
@@ -54,16 +54,3 @@ export async function resetDatabase(db: Db): Promise<void> {
     end $$
   `);
 }
-
-const notStubbed = async () => {
-  throw new Error("This TaskRepo method is not stubbed in this test");
-};
-
-/** A TaskRepo whose unstubbed methods throw, so a test shows exactly which calls it fakes. */
-export const stubTaskRepo = (methods: Partial<TaskRepo>): TaskRepo => ({
-  list: notStubbed,
-  get: notStubbed,
-  save: notStubbed,
-  delete: notStubbed,
-  ...methods,
-});

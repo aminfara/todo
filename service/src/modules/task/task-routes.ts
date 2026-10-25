@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import type { AppEnv } from "../../request-scope";
-import { input } from "../../validator";
+import { input } from "../../route-input";
 import {
   createTaskRequestSchema,
   createTaskResponseSchema,
