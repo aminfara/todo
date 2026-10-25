@@ -10,7 +10,10 @@ export const errorResponseSchema = z.object({
   error: z.object({
     code: z.string(),
     message: z.string(),
-    details: z.object({ issues: z.array(issueSchema).optional() }).loose().optional(),
+    details: z
+      .object({ issues: z.array(issueSchema).optional() })
+      .loose()
+      .optional(),
     requestId: z.string(),
   }),
 });

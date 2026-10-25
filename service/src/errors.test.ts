@@ -15,4 +15,3 @@ describe("toErrorCode", () => {
     expect(toErrorCode(299)).toBe("http_error");
   });
 });
-

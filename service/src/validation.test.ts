@@ -3,11 +3,17 @@ import { z } from "zod";
 import { BadRequestError } from "./errors";
 import { validate, ValidationError } from "./validation";
 
-const schema = z.object({ name: z.string().trim(), tags: z.array(z.object({ label: z.string().min(1) })) });
+const schema = z.object({
+  name: z.string().trim(),
+  tags: z.array(z.object({ label: z.string().min(1) })),
+});
 
 describe("validate", () => {
   test("returns the parsed output, stripped of unknown fields", () => {
-    expect(validate(schema, { name: " ali ", tags: [], extra: 1 })).toEqual({ name: "ali", tags: [] });
+    expect(validate(schema, { name: " ali ", tags: [], extra: 1 })).toEqual({
+      name: "ali",
+      tags: [],
+    });
   });
 
   test("throws a bad request ValidationError listing each issue by dotted path", () => {

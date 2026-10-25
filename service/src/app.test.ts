@@ -15,7 +15,8 @@ const unknownId = `tsk-${"a".repeat(21)}`;
 
 type ErrorBody = { error: { code: string; message: string; details?: any; requestId: string } };
 // Error bodies come from onError, which the typed client does not know about.
-const errorOf = async (res: { json(): Promise<unknown> }) => ((await res.json()) as ErrorBody).error;
+const errorOf = async (res: { json(): Promise<unknown> }) =>
+  ((await res.json()) as ErrorBody).error;
 
 // One PGlite database for the file, emptied before each test. Containers are cheap to wire, so
 // each test still gets its own, sharing the database (which the containers then leave open).
@@ -85,7 +86,10 @@ describe("tasks routes", () => {
     const res = await client.tasks[":id"].$get({ param: { id: unknownId } });
 
     expect(res.status).toBe(404);
-    expect(await errorOf(res)).toMatchObject({ code: "not_found", message: `Task ${unknownId} not found` });
+    expect(await errorOf(res)).toMatchObject({
+      code: "not_found",
+      message: `Task ${unknownId} not found`,
+    });
   });
 
   test("GET /:id returns 400 for a malformed id", async () => {
@@ -98,10 +102,17 @@ describe("tasks routes", () => {
   test("PATCH /:id updates the task addressed by the path", async () => {
     const created = await create({ title: "old", description: "keep" });
 
-    const res = await client.tasks[":id"].$patch({ param: { id: created.id }, json: { title: "new" } });
+    const res = await client.tasks[":id"].$patch({
+      param: { id: created.id },
+      json: { title: "new" },
+    });
 
     expect(res.status).toBe(200);
-    expect((await res.json()).result).toMatchObject({ id: created.id, title: "new", description: "keep" });
+    expect((await res.json()).result).toMatchObject({
+      id: created.id,
+      title: "new",
+      description: "keep",
+    });
   });
 
   test("PATCH /:id ignores an id in the body", async () => {
@@ -244,8 +255,10 @@ describe("cors", () => {
 });
 
 describe("logging", () => {
-  const logTo = (lines: string[]) => pino({ level: "debug" }, { write: (line: string) => void lines.push(line) });
-  const entry = (lines: string[], msg: string) => lines.map((l) => JSON.parse(l)).find((l) => l.msg === msg);
+  const logTo = (lines: string[]) =>
+    pino({ level: "debug" }, { write: (line: string) => void lines.push(line) });
+  const entry = (lines: string[], msg: string) =>
+    lines.map((l) => JSON.parse(l)).find((l) => l.msg === msg);
 
   test("logs client errors at warn", async () => {
     const lines: string[] = [];

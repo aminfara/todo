@@ -7,7 +7,12 @@ const configSchema = z
     logLevel: z.enum(["debug", "info", "warn", "error"]),
     host: z.string().min(1),
     port: z.coerce.number().int().min(1).max(65535),
-    corsOrigin: z.url({ protocol: /^https?$/ }).refine((value) => URL.canParse(value) && new URL(value).origin === value, "must be an origin"),
+    corsOrigin: z
+      .url({ protocol: /^https?$/ })
+      .refine(
+        (value) => URL.canParse(value) && new URL(value).origin === value,
+        "must be an origin",
+      ),
     databaseUrl: z.url({ protocol: /^postgres(ql)?$/ }),
   })
   .readonly(); // parse() returns a frozen object

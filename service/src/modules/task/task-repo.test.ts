@@ -65,7 +65,10 @@ describe("createDrizzleTaskRepo", () => {
 
     await repo.update({ id: idOf(1), changes: { title: "new" } });
 
-    expect(await repo.get({ id: idOf(1) })).toMatchObject({ title: "new", description: "written by someone else" });
+    expect(await repo.get({ id: idOf(1) })).toMatchObject({
+      title: "new",
+      description: "written by someone else",
+    });
   });
 
   test("update returns undefined and stores nothing for an unknown id", async () => {

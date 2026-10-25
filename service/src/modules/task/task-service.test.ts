@@ -48,7 +48,9 @@ describe("create", () => {
   test("stores nothing when the request is invalid", async () => {
     const { service } = await setup();
 
-    await expect(service.create({ title: "", description: "" })).rejects.toBeInstanceOf(ValidationError);
+    await expect(service.create({ title: "", description: "" })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
 
     expect((await service.list()).result).toEqual([]);
   });
@@ -96,7 +98,9 @@ describe("update", () => {
     const { service } = await setup();
     const { result: created } = await service.create({ title: "a", description: "" });
 
-    await expect(service.update({ id: created.id, title: undefined })).rejects.toBeInstanceOf(EmptyTaskUpdateError);
+    await expect(service.update({ id: created.id, title: undefined })).rejects.toBeInstanceOf(
+      EmptyTaskUpdateError,
+    );
 
     expect((await service.get({ id: created.id })).result).toEqual(created);
   });
@@ -104,13 +108,17 @@ describe("update", () => {
   test("rejects an invalid request before looking the task up", async () => {
     const { service } = await setup();
 
-    await expect(service.update({ id: unknownId, title: " " })).rejects.toBeInstanceOf(ValidationError);
+    await expect(service.update({ id: unknownId, title: " " })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
   });
 
   test("throws TaskNotFoundError for an unknown id", async () => {
     const { service } = await setup();
 
-    await expect(service.update({ id: unknownId, title: "x" })).rejects.toBeInstanceOf(TaskNotFoundError);
+    await expect(service.update({ id: unknownId, title: "x" })).rejects.toBeInstanceOf(
+      TaskNotFoundError,
+    );
   });
 });
 
@@ -138,8 +146,15 @@ describe("context", () => {
     const logger = pino({ level: "info" }, { write: (line: string) => void lines.push(line) });
     const { service } = await setup();
 
-    await service.create({ title: "a", description: "" }, { logger: logger.child({ requestId: "req-1" }) });
+    await service.create(
+      { title: "a", description: "" },
+      { logger: logger.child({ requestId: "req-1" }) },
+    );
 
-    expect(JSON.parse(lines[0]!)).toMatchObject({ requestId: "req-1", msg: "Task created", taskId: idOf(1) });
+    expect(JSON.parse(lines[0]!)).toMatchObject({
+      requestId: "req-1",
+      msg: "Task created",
+      taskId: idOf(1),
+    });
   });
 });

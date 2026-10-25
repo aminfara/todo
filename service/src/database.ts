@@ -4,7 +4,13 @@ import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { migrate } from "drizzle-orm/bun-sql/migrator";
 import { readMigrationFiles } from "drizzle-orm/migrator";
-import { bigint, pgSchema, text, type PgDatabase, type PgQueryResultHKT } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  pgSchema,
+  text,
+  type PgDatabase,
+  type PgQueryResultHKT,
+} from "drizzle-orm/pg-core";
 import type { DrizzleConfig } from "drizzle-orm/utils";
 import { InternalServerError } from "./errors";
 
@@ -23,7 +29,9 @@ export const migrationsFolder = fileURLToPath(new URL("../drizzle", import.meta.
 
 export class DatabaseNotMigratedError extends InternalServerError {
   constructor(pending: number) {
-    super(`The database is missing ${pending} migration(s); run \`bun run db:migrate\` before starting`);
+    super(
+      `The database is missing ${pending} migration(s); run \`bun run db:migrate\` before starting`,
+    );
   }
 }
 
@@ -52,7 +60,9 @@ export async function assertMigrated({ db }: { db: Db }): Promise<void> {
     ? await db.select().from(appliedMigrations).orderBy(desc(appliedMigrations.createdAt)).limit(1)
     : [];
   const appliedUpTo = newest?.createdAt ?? -Infinity;
-  const pending = readMigrationFiles({ migrationsFolder }).filter((file) => file.folderMillis > appliedUpTo);
+  const pending = readMigrationFiles({ migrationsFolder }).filter(
+    (file) => file.folderMillis > appliedUpTo,
+  );
   if (pending.length > 0) throw new DatabaseNotMigratedError(pending.length);
 }
 
@@ -63,7 +73,10 @@ export interface ConnectDatabaseParameters {
 }
 
 /** Connects with Bun's SQL driver, then applies or checks migrations before returning. */
-export async function connectDatabase({ url, migrations }: ConnectDatabaseParameters): Promise<Database> {
+export async function connectDatabase({
+  url,
+  migrations,
+}: ConnectDatabaseParameters): Promise<Database> {
   const client = new SQL(url);
   const db = drizzle({ client, ...drizzleConfig });
   try {

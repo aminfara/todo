@@ -29,7 +29,9 @@ export type TaskChanges = Partial<Pick<Task, "title" | "description">>;
 export function parseTaskUpdate(request: UpdateTaskRequest): { id: TaskId; changes: TaskChanges } {
   const { id, ...fields } = validate(updateTaskRequestSchema, request);
   // zod keeps an explicit `undefined` as a present key; it changes nothing, so it does not count.
-  const changes = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
+  const changes = Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined),
+  );
   if (Object.keys(changes).length === 0) throw new EmptyTaskUpdateError();
   return { id, changes };
 }
@@ -40,6 +42,9 @@ export interface TaskUpdatePatchParameters {
 }
 
 /** The columns an update writes: the supplied changes and the new `updatedAt`. */
-export function taskUpdatePatch({ changes, at }: TaskUpdatePatchParameters): TaskChanges & { updatedAt: Date } {
+export function taskUpdatePatch({
+  changes,
+  at,
+}: TaskUpdatePatchParameters): TaskChanges & { updatedAt: Date } {
   return { ...changes, updatedAt: at };
 }

@@ -35,20 +35,35 @@ const contextOf = (c: Context<AppEnv>): TaskServiceContext => ({ logger: c.var.s
 export function createTaskRoutes({ taskService }: CreateTaskRoutesParameters) {
   return {
     routes: new Hono<AppEnv>()
-      .get("/", async (c) => c.json(listTasksResponseSchema.parse(await taskService.list({}, contextOf(c)))))
+      .get("/", async (c) =>
+        c.json(listTasksResponseSchema.parse(await taskService.list({}, contextOf(c)))),
+      )
       .post("/", input("json", createTaskBody), async (c) =>
-        c.json(createTaskResponseSchema.parse(await taskService.create(c.req.valid("json"), contextOf(c))), 201),
+        c.json(
+          createTaskResponseSchema.parse(
+            await taskService.create(c.req.valid("json"), contextOf(c)),
+          ),
+          201,
+        ),
       )
       .get("/:id", input("param", getTaskParams), async (c) =>
-        c.json(getTaskResponseSchema.parse(await taskService.get(c.req.valid("param"), contextOf(c)))),
+        c.json(
+          getTaskResponseSchema.parse(await taskService.get(c.req.valid("param"), contextOf(c))),
+        ),
       )
       .patch("/:id", input("param", updateTaskParams), input("json", updateTaskBody), async (c) => {
         // The path id wins over any id in the body.
         const request = { ...c.req.valid("json"), ...c.req.valid("param") };
-        return c.json(updateTaskResponseSchema.parse(await taskService.update(request, contextOf(c))));
+        return c.json(
+          updateTaskResponseSchema.parse(await taskService.update(request, contextOf(c))),
+        );
       })
       .delete("/:id", input("param", deleteTaskParams), async (c) =>
-        c.json(deleteTaskResponseSchema.parse(await taskService.delete(c.req.valid("param"), contextOf(c)))),
+        c.json(
+          deleteTaskResponseSchema.parse(
+            await taskService.delete(c.req.valid("param"), contextOf(c)),
+          ),
+        ),
       ),
   };
 }

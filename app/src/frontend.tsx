@@ -13,7 +13,8 @@ import { createTaskRoute } from "./tasks/task-route";
 
 // Inlined by Bun when it bundles (BUN_PUBLIC_*, see bunfig.toml); nothing is read at runtime.
 const apiUrl = process.env.BUN_PUBLIC_API_URL;
-if (!apiUrl) throw new Error("BUN_PUBLIC_API_URL was not set when the app was bundled, see app/.env.example");
+if (!apiUrl)
+  throw new Error("BUN_PUBLIC_API_URL was not set when the app was bundled, see app/.env.example");
 
 const router = createBrowserRouter([
   {

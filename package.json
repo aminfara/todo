@@ -2,8 +2,13 @@
   "name": "@tasktogether/root",
   "private": true,
   "type": "module",
-  "workspaces": ["app", "service"],
-  "engines": { "bun": ">=1.4" },
+  "workspaces": [
+    "app",
+    "service"
+  ],
+  "engines": {
+    "bun": ">=1.4"
+  },
   "scripts": {
     "dev": "bun run --parallel --filter '*' dev",
     "test": "bun test",

@@ -24,7 +24,12 @@ export class ApiError extends Error {
   }
 }
 
-type Res<Body = unknown> = { ok: boolean; status: number; statusText: string; json(): Promise<Body> };
+type Res<Body = unknown> = {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  json(): Promise<Body>;
+};
 
 // hc doesn't throw on non-2xx; turn those into errors.
 const ok = async <R extends Res>(res: R): Promise<R> => {
@@ -32,7 +37,11 @@ const ok = async <R extends Res>(res: R): Promise<R> => {
   const body = errorResponseSchema.safeParse(await res.json().catch(() => null));
   const message = body.success ? body.data.error.message : res.statusText;
   if (res.status >= 400 && res.status < 500) {
-    throw new ApiError(message, res.status, body.success ? body.data.error.details?.issues : undefined);
+    throw new ApiError(
+      message,
+      res.status,
+      body.success ? body.data.error.details?.issues : undefined,
+    );
   }
   throw new Error(`The server failed (${res.status}): ${message}`);
 };
@@ -52,7 +61,8 @@ export function createTaskApi({ baseUrl, fetch }: CreateTaskApiParameters) {
     create: async (json: CreateTaskRequest) => unwrap(await client.tasks.$post({ json })),
     update: async ({ id, ...json }: UpdateTaskRequest) =>
       unwrap(await client.tasks[":id"].$patch({ param: { id }, json })),
-    delete: async (param: DeleteTaskRequest) => unwrap(await client.tasks[":id"].$delete({ param })),
+    delete: async (param: DeleteTaskRequest) =>
+      unwrap(await client.tasks[":id"].$delete({ param })),
   };
 }
 

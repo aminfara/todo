@@ -16,46 +16,49 @@ const errorBody = (
   c: { get(key: "requestId"): string },
   statusCode: number,
   { message, details }: { message: string; details?: ErrorDetails },
-) => ({
-  error: { code: toErrorCode(statusCode), message, details, requestId: c.get("requestId") },
-} satisfies ErrorResponse);
+) =>
+  ({
+    error: { code: toErrorCode(statusCode), message, details, requestId: c.get("requestId") },
+  }) satisfies ErrorResponse;
 
 const INTERNAL_SERVER_ERROR_MESSAGE = "Internal Server Error";
 
 export function createApp({ container }: CreateAppParameters) {
-  return new Hono<AppEnv>()
-    .use(cors({ origin: container.config.corsOrigin }))
-    .use(requestId())
-    .use(requestScope(container.createRequestScope))
-    .route("/tasks", container.taskRoutes.routes)
-    .notFound((c) => {
-      const error = new NotFoundError(`Route ${c.req.method} ${c.req.path} not found`);
-      c.get("scope").logger.warn({ err: error }, error.message);
-      return c.json(errorBody(c, error.statusCode, error), error.statusCode);
-    })
-    // Boundary: the only place errors are logged and turned into responses.
-    .onError((err, c) => {
-      const { logger } = c.get("scope");
+  return (
+    new Hono<AppEnv>()
+      .use(cors({ origin: container.config.corsOrigin }))
+      .use(requestId())
+      .use(requestScope(container.createRequestScope))
+      .route("/tasks", container.taskRoutes.routes)
+      .notFound((c) => {
+        const error = new NotFoundError(`Route ${c.req.method} ${c.req.path} not found`);
+        c.get("scope").logger.warn({ err: error }, error.message);
+        return c.json(errorBody(c, error.statusCode, error), error.statusCode);
+      })
+      // Boundary: the only place errors are logged and turned into responses.
+      .onError((err, c) => {
+        const { logger } = c.get("scope");
 
-      if (err instanceof AppError) {
-        // Client errors are warnings, our own failures are errors.
-        const log = err.statusCode >= 500 ? logger.error : logger.warn;
-        log.call(logger, { err }, err.message);
-        // A 5xx message describes our internals, so clients never see it.
-        const body = err.statusCode >= 500 ? { message: INTERNAL_SERVER_ERROR_MESSAGE } : err;
-        return c.json(errorBody(c, err.statusCode, body), err.statusCode);
-      }
+        if (err instanceof AppError) {
+          // Client errors are warnings, our own failures are errors.
+          const log = err.statusCode >= 500 ? logger.error : logger.warn;
+          log.call(logger, { err }, err.message);
+          // A 5xx message describes our internals, so clients never see it.
+          const body = err.statusCode >= 500 ? { message: INTERNAL_SERVER_ERROR_MESSAGE } : err;
+          return c.json(errorBody(c, err.statusCode, body), err.statusCode);
+        }
 
-      // Thrown by Hono itself, e.g. malformed JSON in the request body.
-      if (err instanceof HTTPException) {
-        const log = err.status >= 500 ? logger.error : logger.warn;
-        log.call(logger, { err }, err.message);
-        return c.json(errorBody(c, err.status, err), err.status);
-      }
+        // Thrown by Hono itself, e.g. malformed JSON in the request body.
+        if (err instanceof HTTPException) {
+          const log = err.status >= 500 ? logger.error : logger.warn;
+          log.call(logger, { err }, err.message);
+          return c.json(errorBody(c, err.status, err), err.status);
+        }
 
-      logger.error({ err }, "Unhandled error");
-      return c.json(errorBody(c, 500, { message: INTERNAL_SERVER_ERROR_MESSAGE }), 500);
-    });
+        logger.error({ err }, "Unhandled error");
+        return c.json(errorBody(c, 500, { message: INTERNAL_SERVER_ERROR_MESSAGE }), 500);
+      })
+  );
 }
 
 export type AppType = ReturnType<typeof createApp>;

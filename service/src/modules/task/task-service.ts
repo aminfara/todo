@@ -42,11 +42,19 @@ export interface CreateTaskServiceParameters {
  * The task module's use cases. Every request is validated before any I/O: by the domain function
  * when one builds or changes a task (task-domain.ts), otherwise here.
  */
-export function createTaskService({ taskRepo, logger, newId = newTaskId, now = () => new Date() }: CreateTaskServiceParameters) {
+export function createTaskService({
+  taskRepo,
+  logger,
+  newId = newTaskId,
+  now = () => new Date(),
+}: CreateTaskServiceParameters) {
   const defaultContext: TaskServiceContext = { logger };
 
   return {
-    async list(request: ListTasksRequest = {}, _context = defaultContext): Promise<ListTasksResponse> {
+    async list(
+      request: ListTasksRequest = {},
+      _context = defaultContext,
+    ): Promise<ListTasksResponse> {
       validate(listTasksRequestSchema, request);
       return { result: await taskRepo.list() };
     },
@@ -58,14 +66,20 @@ export function createTaskService({ taskRepo, logger, newId = newTaskId, now = (
       return { result: task };
     },
 
-    async create(request: CreateTaskRequest, context = defaultContext): Promise<CreateTaskResponse> {
+    async create(
+      request: CreateTaskRequest,
+      context = defaultContext,
+    ): Promise<CreateTaskResponse> {
       const task = newTask({ request, id: newId(), at: now() });
       await taskRepo.insert({ task });
       context.logger.info({ taskId: task.id }, "Task created");
       return { result: task };
     },
 
-    async update(request: UpdateTaskRequest, context = defaultContext): Promise<UpdateTaskResponse> {
+    async update(
+      request: UpdateTaskRequest,
+      context = defaultContext,
+    ): Promise<UpdateTaskResponse> {
       const { id, changes } = parseTaskUpdate(request);
       const task = await taskRepo.update({ id, changes: taskUpdatePatch({ changes, at: now() }) });
       if (!task) throw new TaskNotFoundError(id);
@@ -73,7 +87,10 @@ export function createTaskService({ taskRepo, logger, newId = newTaskId, now = (
       return { result: task };
     },
 
-    async delete(request: DeleteTaskRequest, context = defaultContext): Promise<DeleteTaskResponse> {
+    async delete(
+      request: DeleteTaskRequest,
+      context = defaultContext,
+    ): Promise<DeleteTaskResponse> {
       const { id } = validate(deleteTaskRequestSchema, request);
       const task = await taskRepo.delete({ id });
       if (!task) throw new TaskNotFoundError(id);

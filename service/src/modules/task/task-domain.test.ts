@@ -19,7 +19,9 @@ describe("newTask", () => {
   });
 
   test("trims the title", () => {
-    expect(newTask({ request: { title: "  Walk dog  ", description: "" }, id, at }).title).toBe("Walk dog");
+    expect(newTask({ request: { title: "  Walk dog  ", description: "" }, id, at }).title).toBe(
+      "Walk dog",
+    );
   });
 
   test("drops fields the request does not define", () => {
@@ -82,7 +84,10 @@ describe("taskUpdatePatch", () => {
   const later = new Date("2026-01-02T00:00:00.000Z");
 
   test("holds only the supplied fields and the new updatedAt", () => {
-    expect(taskUpdatePatch({ changes: { title: "new" }, at: later })).toEqual({ title: "new", updatedAt: later });
+    expect(taskUpdatePatch({ changes: { title: "new" }, at: later })).toEqual({
+      title: "new",
+      updatedAt: later,
+    });
   });
 
   test("allows clearing the description", () => {
